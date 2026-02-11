@@ -3,6 +3,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PassengerDetailsForm from "@/components/flights/booking/PassengerDetailsForm";
+import PaymentMethods from "@/components/flights/booking/PaymentMethods";
 import BookingInfoCard from "@/components/flights/booking/BookingInfoCard";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -43,13 +44,10 @@ export default function FlightBookingPage() {
 
                 <PassengerDetailsForm />
 
-                <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-                    <div className="text-center sm:text-left">
-                         <p className="text-sm text-muted mb-1">By clicking Book Now, you agree to our <span className="text-primary cursor-pointer hover:underline">Terms</span> and <span className="text-primary cursor-pointer hover:underline">Privacy Policy</span>.</p>
-                    </div>
-                    <button className="w-full sm:w-auto bg-primary hover:bg-primary-hover text-white text-lg font-bold py-4 px-10 rounded-xl shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 active:scale-95 transition-all">
-                        Complete Booking
-                    </button>
+                <PaymentMethods />
+
+                <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 flex items-center gap-6">
+                    <p className="text-sm text-muted mb-1 text-center w-full">By clicking Complete Booking, you agree to our <span className="text-primary cursor-pointer hover:underline">Terms</span> and <span className="text-primary cursor-pointer hover:underline">Privacy Policy</span>.</p>
                 </div>
             </div>
 
