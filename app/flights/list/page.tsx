@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import ListingSearchHeader from "@/components/flights/list/ListingSearchHeader";
@@ -157,7 +157,9 @@ export default function FlightListingPage() {
       
       {/* Search Header Section */}
       <div className="pt-24 pb-8 lg:pb-12 bg-gray-50/30 px-4 lg:px-6">
-        <ListingSearchHeader />
+        <Suspense fallback={<div className="h-[200px] animate-pulse bg-gray-100 rounded-2xl" />}>
+          <ListingSearchHeader />
+        </Suspense>
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-6 py-8 lg:py-12">
