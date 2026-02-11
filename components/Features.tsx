@@ -37,7 +37,7 @@ export default function Features() {
             Why Choose Bata<span className="text-primary">Go</span>?
           </h2>
           <p className="text-muted text-base md:text-lg max-w-2xl mx-auto">
-            We make travel easy, affordable, and reliable. Here's why millions of travelers trust us with their journeys.
+            We make travel easy, affordable, and reliable. Here&apos;s why millions of travelers trust us with their journeys.
           </p>
         </div>
 

@@ -1,6 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { 
+  Plane, 
+  Bed, 
+  User, 
+  Users, 
+  Calendar, 
+  Search, 
+  MapPin, 
+  Circle, 
+  ArrowLeftRight, 
+  Tag,
+  Minus,
+  Plus,
+  ChevronDown
+} from "lucide-react";
 
 type TabType = "flights" | "hotels";
 type CabinClass = "economy" | "business" | "first";
@@ -17,12 +33,40 @@ interface HotelGuests {
   children: number;
 }
 
+const CounterButton = ({ onDecrement, onIncrement, value, minDisabled }: { onDecrement: () => void; onIncrement: () => void; value: number; minDisabled: boolean }) => (
+  <div className="flex items-center gap-3">
+    <button
+      type="button"
+      onClick={onDecrement}
+      disabled={minDisabled}
+      className={`w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${minDisabled ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-primary text-primary hover:bg-primary hover:text-white"}`}
+    >
+      <Minus className="w-4 h-4" />
+    </button>
+    <span className="w-6 text-center font-semibold text-foreground">{value}</span>
+    <button
+      type="button"
+      onClick={onIncrement}
+      className="w-8 h-8 rounded-full border border-primary text-primary hover:bg-primary hover:text-white flex items-center justify-center transition-colors"
+    >
+      <Plus className="w-4 h-4" />
+    </button>
+  </div>
+);
+
 export default function SearchForm() {
   const [activeTab, setActiveTab] = useState<TabType>("flights");
   const [tripType, setTripType] = useState<"roundtrip" | "oneway">("roundtrip");
   const [cabinClass, setCabinClass] = useState<CabinClass>("economy");
   const [showPassengerDropdown, setShowPassengerDropdown] = useState(false);
   const [showGuestDropdown, setShowGuestDropdown] = useState(false);
+  
+  // Search State
+  const [fromLocation, setFromLocation] = useState("Jakarta (CGK)");
+  const [toLocation, setToLocation] = useState("Bali (DPS)");
+  const [departDate, setDepartDate] = useState("2026-05-15");
+  const [returnDate, setReturnDate] = useState("2026-05-20");
+
   const [passengers, setPassengers] = useState<Passengers>({
     adults: 1,
     children: 0,
@@ -79,36 +123,21 @@ export default function SearchForm() {
     });
   };
 
-  const CounterButton = ({ onDecrement, onIncrement, value, minDisabled }: { onDecrement: () => void; onIncrement: () => void; value: number; minDisabled: boolean }) => (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={onDecrement}
-        disabled={minDisabled}
-        className={`w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${minDisabled ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-primary text-primary hover:bg-primary hover:text-white"}`}
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-        </svg>
-      </button>
-      <span className="w-6 text-center font-semibold text-foreground">{value}</span>
-      <button
-        type="button"
-        onClick={onIncrement}
-        className="w-8 h-8 rounded-full border border-primary text-primary hover:bg-primary hover:text-white flex items-center justify-center transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
-    </div>
-  );
-
   const cabinClasses: { value: CabinClass; label: string }[] = [
     { value: "economy", label: "Economy" },
     { value: "business", label: "Business" },
     { value: "first", label: "First Class" },
   ];
+
+  // Construct search URL
+  const searchParams = new URLSearchParams({
+    from: fromLocation,
+    to: toLocation,
+    depart: departDate,
+    return: tripType === "roundtrip" ? returnDate : "",
+    passengers: totalPassengers.toString(),
+    class: cabinClass
+  });
 
   return (
     <div className="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-5xl mx-auto relative z-10">
@@ -118,18 +147,14 @@ export default function SearchForm() {
           onClick={() => setActiveTab("flights")}
           className={`flex-1 flex items-center justify-center gap-3 py-4 text-sm font-semibold transition-all ${activeTab === "flights" ? "text-primary bg-primary/5 border-b-2 border-primary" : "text-muted hover:text-foreground hover:bg-gray-50"}`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
+          <Plane className="w-5 h-5" />
           Flights
         </button>
         <button
           onClick={() => setActiveTab("hotels")}
           className={`flex-1 flex items-center justify-center gap-3 py-4 text-sm font-semibold transition-all ${activeTab === "hotels" ? "text-primary bg-primary/5 border-b-2 border-primary" : "text-muted hover:text-foreground hover:bg-gray-50"}`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
+          <Bed className="w-5 h-5" />
           Hotels
         </button>
       </div>
@@ -187,20 +212,28 @@ export default function SearchForm() {
               <div className="md:col-span-3 relative">
                 <label className="text-xs text-muted font-medium mb-1 block">From</label>
                 <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                  <svg className="w-5 h-5 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="3" strokeWidth={2} />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v4m0 12v4m10-10h-4M6 12H2" />
-                  </svg>
-                  <input type="text" placeholder="Jakarta (CGK)" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
+                  <Circle className="w-5 h-5 text-primary shrink-0" />
+                  <input 
+                    type="text" 
+                    value={fromLocation}
+                    onChange={(e) => setFromLocation(e.target.value)}
+                    placeholder="Jakarta (CGK)" 
+                    className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" 
+                  />
                 </div>
               </div>
 
               {/* Swap Button */}
               <div className="md:col-span-1 flex items-end justify-center pb-2">
-                <button className="w-10 h-10 bg-primary/10 hover:bg-primary/20 rounded-full flex items-center justify-center transition-colors">
-                  <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
+                <button 
+                  onClick={() => {
+                    const temp = fromLocation;
+                    setFromLocation(toLocation);
+                    setToLocation(temp);
+                  }}
+                  className="w-10 h-10 bg-primary/10 hover:bg-primary/20 rounded-full flex items-center justify-center transition-colors"
+                >
+                  <ArrowLeftRight className="w-5 h-5 text-primary" />
                 </button>
               </div>
 
@@ -208,11 +241,14 @@ export default function SearchForm() {
               <div className="md:col-span-3">
                 <label className="text-xs text-muted font-medium mb-1 block">To</label>
                 <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                  <svg className="w-5 h-5 text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <input type="text" placeholder="Bali (DPS)" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
+                  <MapPin className="w-5 h-5 text-secondary shrink-0" />
+                  <input 
+                    type="text" 
+                    value={toLocation}
+                    onChange={(e) => setToLocation(e.target.value)}
+                    placeholder="Bali (DPS)" 
+                    className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" 
+                  />
                 </div>
               </div>
 
@@ -220,10 +256,13 @@ export default function SearchForm() {
               <div className="md:col-span-2">
                 <label className="text-xs text-muted font-medium mb-1 block">Departure</label>
                 <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                  <svg className="w-5 h-5 text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <input type="text" placeholder="15 Feb 2026" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
+                  <Calendar className="w-5 h-5 text-muted shrink-0" />
+                  <input 
+                    type="date"
+                    value={departDate} 
+                    onChange={(e) => setDepartDate(e.target.value)}
+                    className="flex-1 text-sm text-foreground bg-transparent outline-none font-medium" 
+                  />
                 </div>
               </div>
 
@@ -232,10 +271,13 @@ export default function SearchForm() {
                 <div className="md:col-span-2">
                   <label className="text-xs text-muted font-medium mb-1 block">Return</label>
                   <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                    <svg className="w-5 h-5 text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <input type="text" placeholder="20 Feb 2026" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
+                    <Calendar className="w-5 h-5 text-muted shrink-0" />
+                    <input 
+                        type="date" 
+                        value={returnDate}
+                        onChange={(e) => setReturnDate(e.target.value)}
+                        className="flex-1 text-sm text-foreground bg-transparent outline-none font-medium" 
+                    />
                   </div>
                 </div>
               )}
@@ -247,13 +289,9 @@ export default function SearchForm() {
                   onClick={() => setShowPassengerDropdown(!showPassengerDropdown)}
                   className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary cursor-pointer transition-all relative"
                 >
-                  <svg className="w-5 h-5 text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+                  <Users className="w-5 h-5 text-muted shrink-0" />
                   <span className="text-sm text-foreground font-medium">{totalPassengers}</span>
-                  <svg className={`w-4 h-4 text-muted ml-auto transition-transform ${showPassengerDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown className={`w-4 h-4 text-muted ml-auto transition-transform ${showPassengerDropdown ? "rotate-180" : ""}`} />
                 </div>
 
                 {showPassengerDropdown && (
@@ -296,9 +334,7 @@ export default function SearchForm() {
             <div className="md:col-span-4">
               <label className="text-xs text-muted font-medium mb-1 block">City or hotel name</label>
               <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                <svg className="w-5 h-5 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <Search className="w-5 h-5 text-primary shrink-0" />
                 <input type="text" placeholder="Bali, Indonesia" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
               </div>
             </div>
@@ -306,9 +342,7 @@ export default function SearchForm() {
             <div className="md:col-span-2">
               <label className="text-xs text-muted font-medium mb-1 block">Check-in</label>
               <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                <svg className="w-5 h-5 text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <Calendar className="w-5 h-5 text-muted shrink-0" />
                 <input type="text" placeholder="15 Feb 2026" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
               </div>
             </div>
@@ -316,9 +350,7 @@ export default function SearchForm() {
             <div className="md:col-span-2">
               <label className="text-xs text-muted font-medium mb-1 block">Check-out</label>
               <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                <svg className="w-5 h-5 text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <Calendar className="w-5 h-5 text-muted shrink-0" />
                 <input type="text" placeholder="17 Feb 2026" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
               </div>
             </div>
@@ -326,13 +358,9 @@ export default function SearchForm() {
             <div className="md:col-span-4 relative" ref={guestRef}>
               <label className="text-xs text-muted font-medium mb-1 block">Rooms & Guests</label>
               <div onClick={() => setShowGuestDropdown(!showGuestDropdown)} className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary cursor-pointer transition-all">
-                <svg className="w-5 h-5 text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+                <User className="w-5 h-5 text-muted shrink-0" />
                 <span className="text-sm text-foreground font-medium">{hotelGuests.rooms} Room{hotelGuests.rooms > 1 ? "s" : ""}, {totalGuests} Guest{totalGuests > 1 ? "s" : ""}</span>
-                <svg className={`w-4 h-4 text-muted ml-auto transition-transform ${showGuestDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDown className={`w-4 h-4 text-muted ml-auto transition-transform ${showGuestDropdown ? "rotate-180" : ""}`} />
               </div>
 
               {showGuestDropdown && (
@@ -361,17 +389,16 @@ export default function SearchForm() {
         {/* Search Button */}
         <div className="mt-6 flex items-center justify-between">
           <button className="text-sm text-primary font-medium flex items-center gap-2 hover:underline">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
+            <Tag className="w-4 h-4" />
             Have a promo code?
           </button>
-          <button className="bg-primary hover:bg-primary-hover text-white font-semibold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          <Link 
+            href={`/flights/list?${searchParams.toString()}`} 
+            className="bg-primary hover:bg-primary-hover text-white font-semibold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 flex items-center gap-2"
+          >
+            <Search className="w-5 h-5" />
             Search {activeTab === "flights" ? "Flights" : "Hotels"}
-          </button>
+          </Link>
         </div>
       </div>
     </div>

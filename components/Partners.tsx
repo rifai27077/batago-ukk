@@ -15,7 +15,7 @@ export default function Partners() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <p className="text-center text-muted text-sm font-medium mb-8 uppercase tracking-wider">
-          Trusted by the World's Leading Airlines
+          Trusted by the World&apos;s Leading Airlines
         </p>
 
         {/* Logo Grid - Horizontal Scroll on Mobile */}
