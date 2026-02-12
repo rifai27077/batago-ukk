@@ -83,13 +83,16 @@ export default function Destinations({
     <section className="pt-32 pb-16 px-6 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-            {title}
-          </h2>
-          <p className="text-muted text-base max-w-xl mx-auto">
-            {description}
-          </p>
+        <div className="flex justify-between items-end mb-12">
+          <div className="max-w-xl">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">{title}</h2>
+            <p className="text-gray-600">
+              {description}
+            </p>
+          </div>
+          <Link href="#" className="hidden md:inline-block border border-[#14b8a6] text-[#14b8a6] px-6 py-2 rounded-md hover:bg-[#14b8a6] hover:text-white transition-colors text-sm font-semibold">
+            See All
+          </Link>
         </div>
 
         {/* Grid - Featured Large Cards */}
@@ -172,29 +175,6 @@ export default function Destinations({
             ))}
           </div>
         )}
-
-        {/* See All Button */}
-        <div className="text-center mt-12">
-          <Link
-            href="#"
-            className="inline-flex items-center gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white px-8 py-3 rounded-full font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-primary/20"
-          >
-            View All Destinations
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 8l4 4m0 0l-4 4m4-4H3"
-              />
-            </svg>
-          </Link>
-        </div>
       </div>
     </section>
   );

@@ -30,11 +30,14 @@ export default function Header() {
 
   const navLinks = [
     { name: "Find Flights", href: "/flights", icon: Plane },
-    { name: "Find Stays", href: "#", icon: Bed },
+    { name: "Find Stays", href: "/stays", icon: Bed },
   ];
 
   // Force dark styling on specific pages (like listing) or when scrolled/mobile menu open
-  const forceDark = isScrolled || isMobileMenuOpen || pathname?.startsWith("/flights/list") || /^\/flights\/list\/[^/]+$/.test(pathname || "") || pathname?.startsWith("/flights/book") || /^\/flights\/book\/[^/]+$/.test(pathname || "");
+  const forceDark = isScrolled || isMobileMenuOpen || 
+    pathname?.startsWith("/flights/list") || /^\/flights\/list\/[^/]+$/.test(pathname || "") || 
+    pathname?.startsWith("/flights/book") || /^\/flights\/book\/[^/]+$/.test(pathname || "") ||
+    pathname?.startsWith("/stays/list") || /^\/stays\/list\/[^/]+$/.test(pathname || "");
 
   return (
     <header

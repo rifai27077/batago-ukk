@@ -54,8 +54,8 @@ const CounterButton = ({ onDecrement, onIncrement, value, minDisabled }: { onDec
   </div>
 );
 
-export default function SearchForm() {
-  const [activeTab, setActiveTab] = useState<TabType>("flights");
+export default function SearchForm({ mode = "all" }: { mode?: "all" | "flights" | "hotels" }) {
+  const [activeTab, setActiveTab] = useState<TabType>(mode === "hotels" ? "hotels" : "flights");
   const [tripType, setTripType] = useState<"roundtrip" | "oneway">("roundtrip");
   const [cabinClass, setCabinClass] = useState<CabinClass>("economy");
   const [showPassengerDropdown, setShowPassengerDropdown] = useState(false);
@@ -77,6 +77,11 @@ export default function SearchForm() {
     adults: 2,
     children: 0,
   });
+
+  // Hotel search state
+  const [location, setLocation] = useState("Bali, Indonesia");
+  const [checkIn, setCheckIn] = useState("2026-05-15");
+  const [checkOut, setCheckOut] = useState("2026-05-20");
 
   const passengerRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<HTMLDivElement>(null);
@@ -130,34 +135,58 @@ export default function SearchForm() {
   ];
 
   // Construct search URL
-  const searchParams = new URLSearchParams({
-    from: fromLocation,
-    to: toLocation,
-    depart: departDate,
-    return: tripType === "roundtrip" ? returnDate : "",
-    passengers: totalPassengers.toString(),
-    class: cabinClass
-  });
+  const searchParams = activeTab === "flights" 
+    ? new URLSearchParams({
+        from: fromLocation,
+        to: toLocation,
+        depart: departDate,
+        return: tripType === "roundtrip" ? returnDate : "",
+        passengers: totalPassengers.toString(),
+        class: cabinClass
+      })
+    : new URLSearchParams({
+        location: location,
+        checkIn: checkIn,
+        checkOut: checkOut,
+        rooms: hotelGuests.rooms.toString(),
+        guests: totalGuests.toString()
+      });
 
   return (
-    <div className="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-5xl mx-auto relative z-10">
-      {/* Tabs */}
-      <div className="flex border-b border-gray-100">
-        <button
-          onClick={() => setActiveTab("flights")}
-          className={`flex-1 flex items-center justify-center gap-3 py-4 text-sm font-semibold transition-all ${activeTab === "flights" ? "text-primary bg-primary/5 border-b-2 border-primary" : "text-muted hover:text-foreground hover:bg-gray-50"}`}
-        >
-          <Plane className="w-5 h-5" />
-          Flights
-        </button>
-        <button
-          onClick={() => setActiveTab("hotels")}
-          className={`flex-1 flex items-center justify-center gap-3 py-4 text-sm font-semibold transition-all ${activeTab === "hotels" ? "text-primary bg-primary/5 border-b-2 border-primary" : "text-muted hover:text-foreground hover:bg-gray-50"}`}
-        >
-          <Bed className="w-5 h-5" />
-          Hotels
-        </button>
-      </div>
+    <div className="bg-white rounded-2xl shadow-2xl max-w-5xl mx-auto relative z-10 font-sans">
+      {/* Mode-specific Header or Tabs */}
+      {mode === "all" ? (
+        <div className="flex border-b border-gray-100">
+          <button
+            onClick={() => setActiveTab("flights")}
+            className={`flex-1 flex items-center justify-center gap-3 py-4 text-sm font-semibold transition-all ${activeTab === "flights" ? "text-primary bg-primary/5 border-b-2 border-primary" : "text-muted hover:text-foreground hover:bg-gray-50"}`}
+          >
+            <Plane className="w-5 h-5" />
+            Flights
+          </button>
+          <button
+            onClick={() => setActiveTab("hotels")}
+            className={`flex-1 flex items-center justify-center gap-3 py-4 text-sm font-semibold transition-all ${activeTab === "hotels" ? "text-primary bg-primary/5 border-b-2 border-primary" : "text-muted hover:text-foreground hover:bg-gray-50"}`}
+          >
+            <Bed className="w-5 h-5" />
+            Hotels
+          </button>
+        </div>
+      ) : (
+        <div className="bg-primary/5 border-b border-primary p-4 flex items-left justify-left gap-2 text-primary font-bold rounded-t-2xl">
+          {mode === "flights" ? (
+             <>
+               <Plane className="w-5 h-5" />
+               Where Are You Flying?
+             </>
+          ) : (
+             <>
+               <Bed className="w-5 h-5" />
+               Where Are You Staying?
+             </>
+          )}
+        </div>
+      )}
 
       <div className="p-6">
         {activeTab === "flights" ? (
@@ -335,7 +364,13 @@ export default function SearchForm() {
               <label className="text-xs text-muted font-medium mb-1 block">City or hotel name</label>
               <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                 <Search className="w-5 h-5 text-primary shrink-0" />
-                <input type="text" placeholder="Bali, Indonesia" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
+                <input 
+                  type="text" 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Bali, Indonesia" 
+                  className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" 
+                />
               </div>
             </div>
 
@@ -343,7 +378,12 @@ export default function SearchForm() {
               <label className="text-xs text-muted font-medium mb-1 block">Check-in</label>
               <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                 <Calendar className="w-5 h-5 text-muted shrink-0" />
-                <input type="text" placeholder="15 Feb 2026" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
+                <input 
+                  type="date"
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  className="flex-1 text-sm text-foreground bg-transparent outline-none font-medium" 
+                />
               </div>
             </div>
 
@@ -351,7 +391,12 @@ export default function SearchForm() {
               <label className="text-xs text-muted font-medium mb-1 block">Check-out</label>
               <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-primary focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                 <Calendar className="w-5 h-5 text-muted shrink-0" />
-                <input type="text" placeholder="17 Feb 2026" className="flex-1 text-sm text-foreground placeholder:text-muted bg-transparent outline-none font-medium" />
+                <input 
+                  type="date"
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  className="flex-1 text-sm text-foreground bg-transparent outline-none font-medium" 
+                />
               </div>
             </div>
 
@@ -393,7 +438,7 @@ export default function SearchForm() {
             Have a promo code?
           </button>
           <Link 
-            href={`/flights/list?${searchParams.toString()}`} 
+            href={`${activeTab === "flights" ? "/flights" : "/stays"}/list?${searchParams.toString()}`} 
             className="bg-primary hover:bg-primary-hover text-white font-semibold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 flex items-center gap-2"
           >
             <Search className="w-5 h-5" />
