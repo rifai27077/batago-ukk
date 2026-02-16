@@ -1,0 +1,162 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { Eye } from "lucide-react";
+import StatusBadge from "./StatusBadge";
+import type { StatusType } from "./StatusBadge";
+import Pagination from "./Pagination";
+import EmptyState from "./EmptyState";
+
+interface Booking {
+  id: string;
+  guest: string;
+  property: string;
+  date: string;
+  status: StatusType;
+  amount: string;
+}
+
+const mockBookings: Booking[] = [
+  { id: "BG-240216-001", guest: "Ahmad Rifai", property: "Deluxe Room", date: "16-18 Feb 2026", status: "confirmed", amount: "Rp 1.700.000" },
+  { id: "BG-240216-002", guest: "Budi Pratama", property: "Suite Room", date: "17-20 Feb 2026", status: "pending", amount: "Rp 4.500.000" },
+  { id: "BG-240215-003", guest: "Siti Nurhaliza", property: "Family Room", date: "20-22 Feb 2026", status: "confirmed", amount: "Rp 4.400.000" },
+  { id: "BG-240215-004", guest: "Reza Arap", property: "Standard Room", date: "15-16 Feb 2026", status: "completed", amount: "Rp 650.000" },
+  { id: "BG-240214-005", guest: "Dewi Lestari", property: "Deluxe Room", date: "14-15 Feb 2026", status: "cancelled", amount: "Rp 850.000" },
+];
+
+interface BookingTableProps {
+  bookings?: Booking[];
+  showViewAll?: boolean;
+  compact?: boolean;
+  itemsPerPage?: number;
+  showPagination?: boolean;
+}
+
+export default function BookingTable({
+  bookings = mockBookings,
+  showViewAll = true,
+  compact = false,
+  itemsPerPage: initialItemsPerPage = 5,
+  showPagination = false,
+}: BookingTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
+
+  const totalPages = Math.ceil(bookings.length / itemsPerPage);
+  const paginatedBookings = useMemo(() => {
+    if (!showPagination) return bookings;
+    const start = (currentPage - 1) * itemsPerPage;
+    return bookings.slice(start, start + itemsPerPage);
+  }, [bookings, currentPage, itemsPerPage, showPagination]);
+
+  const handleItemsPerPageChange = (num: number) => {
+    setItemsPerPage(num);
+    setCurrentPage(1);
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Bookings</h3>
+          {!compact && (
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">
+              {showPagination ? `${bookings.length} total bookings` : `${bookings.length} recent bookings`}
+            </p>
+          )}
+        </div>
+        {showViewAll && (
+          <Link
+            href="/partner/dashboard/bookings"
+            className="text-sm text-primary font-semibold hover:underline"
+          >
+            View All
+          </Link>
+        )}
+      </div>
+
+      {paginatedBookings.length === 0 ? (
+        <EmptyState
+          variant="booking"
+          title="Belum ada booking"
+          description="Booking yang masuk akan muncul di sini. Pastikan listing Anda sudah aktif!"
+          compact
+        />
+      ) : (
+        <>
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto flex-1">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50/80 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+              <th className="text-left px-5 py-3 font-semibold">Booking ID</th>
+              <th className="text-left px-5 py-3 font-semibold">Guest</th>
+              <th className="text-left px-5 py-3 font-semibold">Room</th>
+              <th className="text-left px-5 py-3 font-semibold">Date</th>
+              <th className="text-left px-5 py-3 font-semibold">Status</th>
+              <th className="text-right px-5 py-3 font-semibold">Amount</th>
+              <th className="text-center px-5 py-3 font-semibold">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50 dark:divide-slate-700">
+            {paginatedBookings.map((booking) => (
+              <tr key={booking.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
+                <td className="px-5 py-3.5 font-mono text-xs text-gray-500 dark:text-slate-400">#{booking.id}</td>
+                <td className="px-5 py-3.5 font-semibold text-gray-800 dark:text-slate-200">{booking.guest}</td>
+                <td className="px-5 py-3.5 text-gray-600 dark:text-slate-300">{booking.property}</td>
+                <td className="px-5 py-3.5 text-gray-600 dark:text-slate-300">{booking.date}</td>
+                <td className="px-5 py-3.5"><StatusBadge status={booking.status} /></td>
+                <td className="px-5 py-3.5 text-right font-semibold text-gray-800 dark:text-slate-200">{booking.amount}</td>
+                <td className="px-5 py-3.5 text-center">
+                  <Link
+                    href={`/partner/dashboard/bookings/${booking.id}`}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden divide-y divide-gray-100 dark:divide-slate-700 flex-1">
+        {paginatedBookings.map((booking) => (
+          <Link
+            href={`/partner/dashboard/bookings/${booking.id}`}
+            key={booking.id}
+            className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-800 dark:text-slate-200 text-sm truncate">{booking.guest}</p>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{booking.property} · {booking.date}</p>
+              <p className="text-[11px] text-gray-400 dark:text-slate-500 font-mono mt-0.5">#{booking.id}</p>
+            </div>
+            <div className="text-right ml-4 flex-shrink-0">
+              <p className="font-semibold text-sm text-gray-800 dark:text-slate-200">{booking.amount}</p>
+              <StatusBadge status={booking.status} className="mt-1" />
+            </div>
+          </Link>
+        ))}
+      </div>
+        </>
+      )}
+
+      {showPagination && totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={bookings.length}
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={handleItemsPerPageChange}
+        />
+      )}
+    </div>
+  );
+}
+
+export type { Booking };

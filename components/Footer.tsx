@@ -6,8 +6,8 @@ const footerLinks = {
   "Our Destinations": ["Canada", "Alaska", "France", "Iceland"],
   "Our Activities": ["Northern Lights", "Cruising & Sailing", "Multi-activities", "Kayaking"],
   "Travel Blogs": ["Bali Travel Guide", "Sri Lanka Travel Guide", "Peru Travel Guide", "Bali Travel Guide"],
-  "About Us": ["Our Story", "Work with us"],
-  "Contact Us": ["Our Story", "Work with us"],
+  "About Us": ["Our Story", { label: "Work with us", href: "/partner" }],
+  "Contact Us": ["Our Story", { label: "Work with us", href: "/partner" }],
 };
 
 export default function Footer() {
@@ -76,10 +76,10 @@ export default function Footer() {
                   {links.map((link, index) => (
                     <li key={index}>
                       <Link
-                        href="#"
+                        href={typeof link === 'string' ? '#' : link.href}
                         className="text-white/80 text-sm hover:text-white hover:pl-1 transition-all duration-300 inline-block"
                       >
-                        {link}
+                        {typeof link === 'string' ? link : link.label}
                       </Link>
                     </li>
                   ))}
