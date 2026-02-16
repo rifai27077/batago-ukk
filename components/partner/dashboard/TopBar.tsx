@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Menu, Search, Bell, ChevronDown, User, Settings, LogOut, Check, BellOff, Sun, Moon } from "lucide-react";
+import { Menu, Search, Bell, ChevronDown, User, Settings, LogOut, Check, BellOff, Sun, Moon, Plane, Building2 } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
+import { useDateRange } from "./DateRangeContext";
+import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 
 interface TopBarProps {
   onMenuToggle: () => void;
@@ -24,6 +26,7 @@ const initialNotifications: Notification[] = [
 ];
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
+  const { partnerType, setPartnerType } = usePartner();
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
@@ -53,6 +56,25 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const { setDateRange } = useDateRange();
+  const [activeRange, setActiveRange] = useState("30d");
+
+  const handleRangeChange = (range: string) => {
+    setActiveRange(range);
+    const now = new Date();
+    let from = new Date();
+
+    if (range === "7d") {
+      from.setDate(now.getDate() - 7);
+    } else if (range === "30d") {
+      from.setDate(now.getDate() - 30);
+    } else if (range === "month") {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    setDateRange({ from, to: now });
+  };
+  
   return (
     <header className="h-16 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
       {/* Left: Menu + Search */}
@@ -74,8 +96,48 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         </div>
       </div>
 
-      {/* Right: Theme Toggle + Notifications + Profile */}
+      {/* Right: Date Filter + Theme Toggle + Notifications + Profile */}
       <div className="flex items-center gap-2">
+         {/* Partner Type Toggle (DEV ONLY) */}
+         <div className="hidden lg:flex items-center bg-gray-50 dark:bg-slate-700 rounded-xl border border-gray-100 dark:border-slate-600 p-1 mr-2">
+            <button
+              onClick={() => setPartnerType("hotel")}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${partnerType === "hotel" ? "bg-white dark:bg-slate-600 text-primary shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Hotel</span>
+            </button>
+            <button
+              onClick={() => setPartnerType("airline")}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${partnerType === "airline" ? "bg-white dark:bg-slate-600 text-sky-500 shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
+            >
+              <Plane className="w-3.5 h-3.5" />
+              <span>Airline</span>
+            </button>
+         </div>
+
+         {/* Global Date Filter - NEW */}
+        <div className="hidden md:flex items-center bg-gray-50 dark:bg-slate-700 rounded-xl border border-gray-100 dark:border-slate-600 p-1 mr-2">
+          <button 
+            onClick={() => handleRangeChange("30d")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${activeRange === "30d" ? "bg-white dark:bg-slate-600 text-gray-800 dark:text-white" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
+          >
+            30 Days
+          </button>
+          <button 
+            onClick={() => handleRangeChange("7d")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${activeRange === "7d" ? "bg-white dark:bg-slate-600 text-gray-800 dark:text-white" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
+          >
+            7 Days
+          </button>
+          <button 
+            onClick={() => handleRangeChange("month")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${activeRange === "month" ? "bg-white dark:bg-slate-600 text-gray-800 dark:text-white" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
+          >
+            Month
+          </button>
+        </div>
+
         {/* Dark Mode Toggle */}
         <button
           onClick={toggleTheme}

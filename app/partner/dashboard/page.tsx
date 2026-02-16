@@ -15,6 +15,8 @@ const quickActions = [
   { label: "Check Notifications", href: "#", icon: Bell, color: "bg-amber-500" },
 ];
 
+import OnboardingProgress from "@/components/partner/dashboard/OnboardingProgress";
+
 export default function DashboardOverview() {
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,6 +58,9 @@ export default function DashboardOverview() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Progress - NEW */}
+      <OnboardingProgress />
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

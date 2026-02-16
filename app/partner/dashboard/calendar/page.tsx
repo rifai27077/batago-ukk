@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import BlockDateModal from "@/components/partner/dashboard/BlockDateModal";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -56,6 +57,13 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date(2026, 1)); // Feb 2026
   const [selectedRoom, setSelectedRoom] = useState("All Rooms");
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+
+  const handleBlockDates = (data: any) => {
+    console.log("Blocking Dates:", data);
+    setIsBlockModalOpen(false);
+    // Add logic to update calendar state
+  };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -73,10 +81,19 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Availability Calendar</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Manage room availability and pricing</p>
         </div>
-        <button className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm text-sm">
+        <button 
+          onClick={() => setIsBlockModalOpen(true)}
+          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm text-sm"
+        >
           <Plus className="w-4 h-4" /> Block Dates
         </button>
       </div>
+
+      <BlockDateModal 
+        isOpen={isBlockModalOpen} 
+        onClose={() => setIsBlockModalOpen(false)} 
+        onSave={handleBlockDates} 
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-5">
         {/* Calendar */}

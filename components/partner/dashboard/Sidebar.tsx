@@ -15,18 +15,43 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Tag,
+  Compass,
+  Plane,
+  Map,
+  Users,
 } from "lucide-react";
 
-const navItems = [
+type PartnerType = "hotel" | "airline";
+
+const navItemsHotel = [
   { label: "Overview", href: "/partner/dashboard", icon: LayoutDashboard },
   { label: "Listings", href: "/partner/dashboard/listings", icon: Building2 },
+  { label: "Promotions", href: "/partner/dashboard/promotions", icon: Tag },
   { label: "Bookings", href: "/partner/dashboard/bookings", icon: CalendarCheck },
   { label: "Calendar", href: "/partner/dashboard/calendar", icon: CalendarDays },
   { label: "Finance", href: "/partner/dashboard/finance", icon: Wallet },
   { label: "Reviews", href: "/partner/dashboard/reviews", icon: Star },
   { label: "Analytics", href: "/partner/dashboard/analytics", icon: BarChart3 },
+  { label: "Staff", href: "/partner/dashboard/staff", icon: Users },
   { label: "Settings", href: "/partner/dashboard/settings", icon: Settings },
 ];
+
+const navItemsAirline = [
+  { label: "Overview", href: "/partner/dashboard", icon: LayoutDashboard },
+  { label: "Routes", href: "/partner/dashboard/routes", icon: Map },
+  { label: "Fleet", href: "/partner/dashboard/fleet", icon: Plane },
+  { label: "Schedules", href: "/partner/dashboard/calendar", icon: CalendarDays }, // Replaces Calendar
+  { label: "Reservations", href: "/partner/dashboard/bookings", icon: Users }, // Replaces Bookings & Passengers
+  { label: "Promotions", href: "/partner/dashboard/promotions", icon: Tag },
+  { label: "Finance", href: "/partner/dashboard/finance", icon: Wallet },
+  { label: "Reviews", href: "/partner/dashboard/reviews", icon: Star },
+  { label: "Analytics", href: "/partner/dashboard/analytics", icon: BarChart3 },
+  { label: "Staff", href: "/partner/dashboard/staff", icon: Users },
+  { label: "Settings", href: "/partner/dashboard/settings", icon: Settings },
+];
+
+import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -36,7 +61,9 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
+  const { partnerType } = usePartner();
   const pathname = usePathname();
+  const navItems = partnerType === "airline" ? navItemsAirline : navItemsHotel;
 
   const isActive = (href: string) => {
     if (href === "/partner/dashboard") return pathname === href;
@@ -72,7 +99,9 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 <span className="text-white font-bold text-sm">B</span>
               </div>
               <span className="text-gray-900 dark:text-white font-bold text-lg tracking-tight">BataGo</span>
-              <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">Partner</span>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${partnerType === 'airline' ? 'bg-sky-500/10 text-sky-600' : 'bg-primary/10 text-primary'}`}>
+                {partnerType === 'airline' ? 'Airline' : 'Partner'}
+              </span>
             </Link>
           )}
           {isCollapsed && (

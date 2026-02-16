@@ -2,33 +2,53 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, Download, Eye, Filter } from "lucide-react";
+import { Search, Download, Eye, Filter, Plane, Building2 } from "lucide-react";
+import { useDateRange } from "@/components/partner/dashboard/DateRangeContext";
+import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 import StatusBadge from "@/components/partner/dashboard/StatusBadge";
 import type { StatusType } from "@/components/partner/dashboard/StatusBadge";
 import Pagination from "@/components/partner/dashboard/Pagination";
 
-interface BookingItem {
+interface BaseBookingItem {
   id: string;
+  amount: string;
+  status: StatusType;
+  createdAt: string;
+}
+
+interface HotelBookingItem extends BaseBookingItem {
+  type: "hotel";
   guest: string;
   property: string;
   checkIn: string;
   checkOut: string;
-  status: StatusType;
-  amount: string;
-  createdAt: string;
 }
 
-const mockBookings: BookingItem[] = [
-  { id: "BG-240216-001", guest: "Ahmad Rifai", property: "Deluxe Room", checkIn: "16 Feb", checkOut: "18 Feb", status: "confirmed", amount: "Rp 1.700.000", createdAt: "14 Feb" },
-  { id: "BG-240216-002", guest: "Budi Pratama", property: "Suite Room", checkIn: "17 Feb", checkOut: "20 Feb", status: "pending", amount: "Rp 4.500.000", createdAt: "14 Feb" },
-  { id: "BG-240215-003", guest: "Siti Nurhaliza", property: "Family Room", checkIn: "20 Feb", checkOut: "22 Feb", status: "confirmed", amount: "Rp 4.400.000", createdAt: "13 Feb" },
-  { id: "BG-240215-004", guest: "Reza Arap", property: "Standard Room", checkIn: "15 Feb", checkOut: "16 Feb", status: "completed", amount: "Rp 650.000", createdAt: "12 Feb" },
-  { id: "BG-240214-005", guest: "Dewi Lestari", property: "Deluxe Room", checkIn: "14 Feb", checkOut: "15 Feb", status: "cancelled", amount: "Rp 850.000", createdAt: "11 Feb" },
-  { id: "BG-240213-006", guest: "Tono Sucipto", property: "Suite Room", checkIn: "13 Feb", checkOut: "16 Feb", status: "completed", amount: "Rp 6.750.000", createdAt: "10 Feb" },
-  { id: "BG-240212-007", guest: "Maya Sari", property: "Deluxe Room", checkIn: "12 Feb", checkOut: "14 Feb", status: "completed", amount: "Rp 1.700.000", createdAt: "9 Feb" },
-  { id: "BG-240211-008", guest: "Joko Widodo", property: "Presidential Suite", checkIn: "11 Feb", checkOut: "13 Feb", status: "completed", amount: "Rp 12.000.000", createdAt: "8 Feb" },
-  { id: "BG-240210-009", guest: "Lisa Blackpink", property: "Family Room", checkIn: "10 Feb", checkOut: "12 Feb", status: "cancelled", amount: "Rp 4.400.000", createdAt: "7 Feb" },
-  { id: "BG-240209-010", guest: "Raisa Andriana", property: "Deluxe Room", checkIn: "9 Feb", checkOut: "11 Feb", status: "completed", amount: "Rp 1.700.000", createdAt: "6 Feb" },
+interface AirlineBookingItem extends BaseBookingItem {
+  type: "airline";
+  passenger: string;
+  flightNumber: string;
+  route: string;
+  date: string;
+  seatClass: string;
+}
+
+type BookingItem = HotelBookingItem | AirlineBookingItem;
+
+const mockHotelBookings: HotelBookingItem[] = [
+  { id: "BG-HOT-001", type: "hotel", guest: "Ahmad Rifai", property: "Deluxe Room", checkIn: "16 Feb", checkOut: "18 Feb", status: "confirmed", amount: "Rp 1.700.000", createdAt: "14 Feb" },
+  { id: "BG-HOT-002", type: "hotel", guest: "Budi Pratama", property: "Suite Room", checkIn: "17 Feb", checkOut: "20 Feb", status: "pending", amount: "Rp 4.500.000", createdAt: "14 Feb" },
+  { id: "BG-HOT-003", type: "hotel", guest: "Siti Nurhaliza", property: "Family Room", checkIn: "20 Feb", checkOut: "22 Feb", status: "confirmed", amount: "Rp 4.400.000", createdAt: "13 Feb" },
+  { id: "BG-HOT-004", type: "hotel", guest: "Reza Arap", property: "Standard Room", checkIn: "15 Feb", checkOut: "16 Feb", status: "completed", amount: "Rp 650.000", createdAt: "12 Feb" },
+  { id: "BG-HOT-005", type: "hotel", guest: "Dewi Lestari", property: "Deluxe Room", checkIn: "14 Feb", checkOut: "15 Feb", status: "cancelled", amount: "Rp 850.000", createdAt: "11 Feb" },
+];
+
+const mockAirlineBookings: AirlineBookingItem[] = [
+  { id: "BG-AIR-001", type: "airline", passenger: "Ahmad Rifai", flightNumber: "GA-402", route: "CGK - DPS", date: "16 Feb 2026", seatClass: "Economy", status: "confirmed", amount: "Rp 1.200.000", createdAt: "14 Feb" },
+  { id: "BG-AIR-002", type: "airline", passenger: "Budi Pratama", flightNumber: "GA-824", route: "CGK - SIN", date: "18 Feb 2026", seatClass: "Business", status: "confirmed", amount: "Rp 4.500.000", createdAt: "14 Feb" },
+  { id: "BG-AIR-003", type: "airline", passenger: "Siti Nurhaliza", flightNumber: "QZ-321", route: "SUB - KUL", date: "20 Feb 2026", seatClass: "Economy", status: "pending", amount: "Rp 850.000", createdAt: "15 Feb" },
+  { id: "BG-AIR-004", type: "airline", passenger: "Reza Arap", flightNumber: "GA-710", route: "DPS - SYD", date: "22 Feb 2026", seatClass: "First Class", status: "completed", amount: "Rp 12.000.000", createdAt: "10 Feb" },
+  { id: "BG-AIR-005", type: "airline", passenger: "Dewi Lestari", flightNumber: "GA-402", route: "CGK - DPS", date: "23 Feb 2026", seatClass: "Economy", status: "cancelled", amount: "Rp 1.200.000", createdAt: "12 Feb" },
 ];
 
 const tabs = [
@@ -40,23 +60,55 @@ const tabs = [
 ] as const;
 
 export default function BookingsPage() {
+  const { dateRange } = useDateRange();
+  const { partnerType } = usePartner();
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
-  const filtered = useMemo(() => {
-    return mockBookings.filter((b) => {
-      const matchSearch =
-        b.guest.toLowerCase().includes(search.toLowerCase()) ||
-        b.id.toLowerCase().includes(search.toLowerCase());
+  const rawData = partnerType === "hotel" ? mockHotelBookings : mockAirlineBookings;
 
+  const filtered = useMemo(() => {
+    return rawData.filter((b) => {
+      // Search Logic
+      const searchTerm = search.toLowerCase();
+      let matchSearch = false;
+      if (b.type === "hotel") {
+        matchSearch = b.guest.toLowerCase().includes(searchTerm) || b.id.toLowerCase().includes(searchTerm);
+      } else {
+        matchSearch = b.passenger.toLowerCase().includes(searchTerm) || b.id.toLowerCase().includes(searchTerm) || b.flightNumber.toLowerCase().includes(searchTerm);
+      }
+
+      // Date Range Logic
+      let itemDate: Date | null = null;
+      const year = new Date().getFullYear();
+
+      if (b.type === "hotel") {
+        const checkInParts = b.checkIn.split(" ");
+        const day = parseInt(checkInParts[0]);
+        const monthStr = checkInParts[1];
+        const monthIndex = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(monthStr);
+        if (monthIndex >= 0) itemDate = new Date(year, monthIndex, day);
+      } else {
+        // e.g., "16 Feb 2026"
+        itemDate = new Date(b.date);
+      }
+
+      const inDateRange = 
+        !itemDate ||
+        ((!dateRange.from || itemDate >= dateRange.from) &&
+        (!dateRange.to || itemDate <= dateRange.to));
+
+      if (!inDateRange) return false;
+
+      // Tab Logic
       if (activeTab === "all") return matchSearch;
-      if (activeTab === "today") return matchSearch && b.status === "confirmed";
+      if (activeTab === "today") return matchSearch && b.status === "confirmed"; // Simplified mock logic
       if (activeTab === "upcoming") return matchSearch && (b.status === "confirmed" || b.status === "pending");
       return matchSearch && b.status === activeTab;
     });
-  }, [activeTab, search]);
+  }, [activeTab, search, dateRange, rawData]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedData = useMemo(() => {
@@ -89,8 +141,12 @@ export default function BookingsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bookings</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{mockBookings.length} total bookings</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {partnerType === "hotel" ? "Bookings" : "Passenger List"}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+            {filtered.length} total {partnerType === "hotel" ? "bookings" : "passengers"} found
+          </p>
         </div>
         <button className="inline-flex items-center gap-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 font-medium px-4 py-2.5 rounded-xl transition-colors text-sm border border-gray-100 dark:border-slate-700">
           <Download className="w-4 h-4" />
@@ -123,7 +179,7 @@ export default function BookingsPage() {
             <Search className="w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by guest name or booking ID..."
+              placeholder={partnerType === "hotel" ? "Search by guest name or booking ID..." : "Search by passenger, flight, or PNR..."}
               value={search}
               onChange={handleSearchChange}
               className="bg-transparent outline-none text-sm text-gray-700 dark:text-slate-200 placeholder-gray-400 w-full"
@@ -141,10 +197,21 @@ export default function BookingsPage() {
               <thead>
                 <tr className="bg-gray-50/80 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                   <th className="text-left px-5 py-3 font-semibold">Booking ID</th>
-                  <th className="text-left px-5 py-3 font-semibold">Guest</th>
-                  <th className="text-left px-5 py-3 font-semibold">Room</th>
-                  <th className="text-left px-5 py-3 font-semibold">Check-in</th>
-                  <th className="text-left px-5 py-3 font-semibold">Check-out</th>
+                  {partnerType === "hotel" ? (
+                    <>
+                      <th className="text-left px-5 py-3 font-semibold">Guest</th>
+                      <th className="text-left px-5 py-3 font-semibold">Room</th>
+                      <th className="text-left px-5 py-3 font-semibold">Check-in</th>
+                      <th className="text-left px-5 py-3 font-semibold">Check-out</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="text-left px-5 py-3 font-semibold">Passenger</th>
+                      <th className="text-left px-5 py-3 font-semibold">Flight Info</th>
+                      <th className="text-left px-5 py-3 font-semibold">Date</th>
+                      <th className="text-left px-5 py-3 font-semibold">Seat</th>
+                    </>
+                  )}
                   <th className="text-left px-5 py-3 font-semibold">Status</th>
                   <th className="text-right px-5 py-3 font-semibold">Amount</th>
                   <th className="text-center px-5 py-3 font-semibold">Action</th>
@@ -154,10 +221,28 @@ export default function BookingsPage() {
                 {paginatedData.map((booking) => (
                   <tr key={booking.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
                     <td className="px-5 py-3.5 font-mono text-xs text-gray-500 dark:text-slate-400">#{booking.id}</td>
-                    <td className="px-5 py-3.5 font-semibold text-gray-800 dark:text-slate-200">{booking.guest}</td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.property}</td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.checkIn}</td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.checkOut}</td>
+                    
+                    {booking.type === "hotel" ? (
+                      <>
+                        <td className="px-5 py-3.5 font-semibold text-gray-800 dark:text-slate-200">{booking.guest}</td>
+                        <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.property}</td>
+                        <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.checkIn}</td>
+                        <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.checkOut}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-5 py-3.5 font-semibold text-gray-800 dark:text-slate-200">{booking.passenger}</td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-gray-800 dark:text-slate-200">{booking.flightNumber}</span>
+                            <span className="text-xs text-gray-500">{booking.route}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.date}</td>
+                        <td className="px-5 py-3.5 text-gray-600 dark:text-slate-400">{booking.seatClass}</td>
+                      </>
+                    )}
+
                     <td className="px-5 py-3.5"><StatusBadge status={booking.status} /></td>
                     <td className="px-5 py-3.5 text-right font-semibold text-gray-800 dark:text-slate-200">{booking.amount}</td>
                     <td className="px-5 py-3.5 text-center">
@@ -183,8 +268,17 @@ export default function BookingsPage() {
                 className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 dark:text-slate-200 text-sm truncate">{booking.guest}</p>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{booking.property} · {booking.checkIn} — {booking.checkOut}</p>
+                  {booking.type === "hotel" ? (
+                    <>
+                      <p className="font-semibold text-gray-800 dark:text-slate-200 text-sm truncate">{booking.guest}</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{booking.property} · {booking.checkIn} — {booking.checkOut}</p>
+                    </>
+                  ) : (
+                    <>
+                       <p className="font-semibold text-gray-800 dark:text-slate-200 text-sm truncate">{booking.passenger}</p>
+                       <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{booking.flightNumber} · {booking.route} · {booking.date}</p>
+                    </>
+                  )}
                   <p className="text-[11px] text-gray-400 font-mono mt-0.5">#{booking.id}</p>
                 </div>
                 <div className="text-right ml-4 flex-shrink-0">

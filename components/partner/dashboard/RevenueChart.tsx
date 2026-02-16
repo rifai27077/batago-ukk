@@ -112,7 +112,7 @@ export default function RevenueChart() {
                 padding: "10px 14px",
                 boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
               }}
-              formatter={(value: number) => [`Rp ${value.toLocaleString("id-ID")}`, ""] as [string, string]}
+              formatter={(value: any) => [`Rp ${value?.toLocaleString("id-ID")}`, ""]}
               labelStyle={{ fontWeight: 700, marginBottom: 4, color: "#111" }}
             />
             <Area

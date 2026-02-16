@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Star, MessageSquare, ThumbsUp, Search, Filter, TrendingUp, BarChart3, Download, Send } from "lucide-react";
+import { Star, MessageSquare, ThumbsUp, Search, Download, Plane, Building2 } from "lucide-react";
 import EmptyState from "@/components/partner/dashboard/EmptyState";
 import {
   ResponsiveContainer,
@@ -12,6 +12,7 @@ import {
   Tooltip,
 } from "recharts";
 import Pagination from "@/components/partner/dashboard/Pagination";
+import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 
 interface Review {
   id: string;
@@ -19,18 +20,26 @@ interface Review {
   avatar: string;
   rating: number;
   comment: string;
-  room: string;
+  item: string; // Room for hotel, Route/Flight for airline
   date: string;
   reply?: string;
 }
 
-const mockReviews: Review[] = [
-  { id: "1", guest: "Ahmad Rifai", avatar: "AR", rating: 5, comment: "Kamar bersih dan nyaman, staff sangat ramah! Sarapan juga enak. Pasti akan menginap lagi.", room: "Deluxe Room", date: "16 Feb 2026", reply: "Terima kasih atas ulasan positifnya, Pak Ahmad! Kami senang Anda menikmati menginap di sini. Ditunggu kedatangannya kembali!" },
-  { id: "2", guest: "Budi Pratama", avatar: "BP", rating: 5, comment: "Suite room-nya luar biasa! View laut yang indah dan fasilitas lengkap. Worth every penny.", room: "Suite Room", date: "15 Feb 2026" },
-  { id: "3", guest: "Siti Nurhaliza", avatar: "SN", rating: 4, comment: "Lokasi strategis, dekat dengan pusat kota. Kamar cukup luas untuk keluarga. WiFi agak lambat di malam hari.", room: "Family Room", date: "14 Feb 2026", reply: "Terima kasih feedbacknya, Bu Siti. Kami sudah meningkatkan bandwidth WiFi kami. Semoga pengalaman selanjutnya lebih baik!" },
-  { id: "4", guest: "Reza Arap", avatar: "RA", rating: 3, comment: "Kamar standar cukup oke untuk harganya. AC agak berisik di malam hari. Breakfast biasa saja.", room: "Standard Room", date: "12 Feb 2026" },
-  { id: "5", guest: "Dewi Lestari", avatar: "DL", rating: 5, comment: "Pengalaman menginap terbaik di Batam! Kolam renangnya amazing dan spa-nya relaxing banget.", room: "Deluxe Room", date: "10 Feb 2026" },
-  { id: "6", guest: "Maya Sari", avatar: "MS", rating: 4, comment: "Hotel dengan pelayanan prima. Check-in cepat, kamar wangi. Satu catatan: parking agak susah saat weekend.", room: "Deluxe Room", date: "8 Feb 2026" },
+const mockHotelReviews: Review[] = [
+  { id: "1", guest: "Ahmad Rifai", avatar: "AR", rating: 5, comment: "Kamar bersih dan nyaman, staff sangat ramah! Sarapan juga enak. Pasti akan menginap lagi.", item: "Deluxe Room", date: "16 Feb 2026", reply: "Terima kasih atas ulasan positifnya, Pak Ahmad! Kami senang Anda menikmati menginap di sini. Ditunggu kedatangannya kembali!" },
+  { id: "2", guest: "Budi Pratama", avatar: "BP", rating: 5, comment: "Suite room-nya luar biasa! View laut yang indah dan fasilitas lengkap. Worth every penny.", item: "Suite Room", date: "15 Feb 2026" },
+  { id: "3", guest: "Siti Nurhaliza", avatar: "SN", rating: 4, comment: "Lokasi strategis, dekat dengan pusat kota. Kamar cukup luas untuk keluarga. WiFi agak lambat di malam hari.", item: "Family Room", date: "14 Feb 2026", reply: "Terima kasih feedbacknya, Bu Siti. Kami sudah meningkatkan bandwidth WiFi kami. Semoga pengalaman selanjutnya lebih baik!" },
+  { id: "4", guest: "Reza Arap", avatar: "RA", rating: 3, comment: "Kamar standar cukup oke untuk harganya. AC agak berisik di malam hari. Breakfast biasa saja.", item: "Standard Room", date: "12 Feb 2026" },
+  { id: "5", guest: "Dewi Lestari", avatar: "DL", rating: 5, comment: "Pengalaman menginap terbaik di Batam! Kolam renangnya amazing dan spa-nya relaxing banget.", item: "Deluxe Room", date: "10 Feb 2026" },
+  { id: "6", guest: "Maya Sari", avatar: "MS", rating: 4, comment: "Hotel dengan pelayanan prima. Check-in cepat, kamar wangi. Satu catatan: parking agak susah saat weekend.", item: "Deluxe Room", date: "8 Feb 2026" },
+];
+
+const mockAirlineReviews: Review[] = [
+  { id: "1", guest: "Ahmad Rifai", avatar: "AR", rating: 5, comment: "Penerbangan tepat waktu, pramugari ramah, dan makanan enak. Sangat merekomendasikan Batik Air.", item: "CGK - DPS (GA-402)", date: "16 Feb 2026", reply: "Terima kasih, Pak Ahmad! Kami senang bisa melayani Anda dalam penerbangan ke Bali." },
+  { id: "2", guest: "Budi Pratama", avatar: "BP", rating: 4, comment: "Kursi cukup nyaman untuk economy class. Leg room lega. Check-in agak antri panjang.", item: "CGK - SIN (GA-824)", date: "15 Feb 2026" },
+  { id: "3", guest: "Siti Nurhaliza", avatar: "SN", rating: 5, comment: "Pilot landingnya smooth banget! Perjalanan jadi tidak terasa melelahkan.", item: "SUB - KUL (QZ-321)", date: "14 Feb 2026", reply: "Terima kasih Bu Siti, keselamatan dan kenyamanan penumpang adalah prioritas kami." },
+  { id: "4", guest: "Reza Arap", avatar: "RA", rating: 2, comment: "Delay 2 jam tanpa pemberitahuan yang jelas. Sangat kecewa.", item: "DPS - SYD (GA-710)", date: "12 Feb 2026", reply: "Mohon maaf atas ketidaknyamanan ini, Pak Reza. Keterlambatan dikarenakan cuaca buruk di bandara tujuan." },
+  { id: "5", guest: "Dewi Lestari", avatar: "DL", rating: 5, comment: "Hiburan di pesawat lengkap, anak-anak jadi tenang sepanjang perjalanan.", item: "CGK - DPS (GA-402)", date: "10 Feb 2026" },
 ];
 
 const ratingDistribution = [
@@ -53,6 +62,7 @@ const ratingTrend = [
 const tabs = ["All", "Replied", "Unreplied"] as const;
 
 export default function ReviewsPage() {
+  const { partnerType } = usePartner();
   const [activeTab, setActiveTab] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -60,14 +70,16 @@ export default function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(3);
 
+  const reviews = partnerType === "hotel" ? mockHotelReviews : mockAirlineReviews;
+
   const filtered = useMemo(() => {
-    return mockReviews.filter((r) => {
+    return reviews.filter((r) => {
       const matchSearch = r.guest.toLowerCase().includes(search.toLowerCase()) || r.comment.toLowerCase().includes(search.toLowerCase());
       if (activeTab === "Replied") return matchSearch && r.reply;
       if (activeTab === "Unreplied") return matchSearch && !r.reply;
       return matchSearch;
     });
-  }, [activeTab, search]);
+  }, [activeTab, search, reviews]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedReviews = useMemo(() => {
@@ -101,7 +113,7 @@ export default function ReviewsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reviews & Ratings</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{mockReviews.length} total reviews</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{reviews.length} total reviews</p>
         </div>
         <button className="inline-flex items-center gap-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 font-medium px-4 py-2.5 rounded-xl transition-colors text-sm border border-gray-100 dark:border-slate-700">
           <Download className="w-4 h-4" />
@@ -159,7 +171,7 @@ export default function ReviewsPage() {
           {/* Filters */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex bg-gray-100 dark:bg-slate-900 rounded-xl p-1 flex-shrink-0">
+              <div className="flex bg-gray-100 dark:bg-slate-900 rounded-xl p-1 shrink-0">
                 {tabs.map((tab) => (
                   <button
                     key={tab}
@@ -194,7 +206,7 @@ export default function ReviewsPage() {
                 <EmptyState
                   variant="review"
                   title="Belum ada ulasan"
-                  description="Ulasan dari tamu akan muncul di sini setelah mereka menyelesaikan masa menginap."
+                  description="Ulasan akan muncul di sini setelah pelanggan menyelesaikan pesanan mereka."
                 />
               </div>
             ) : (
@@ -208,7 +220,10 @@ export default function ReviewsPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <span className="font-bold text-gray-800 dark:text-white text-sm">{review.guest}</span>
-                        <span className="text-gray-400 text-xs ml-2">· {review.room}</span>
+                        <span className="text-gray-400 text-xs ml-2 flex items-center gap-1">
+                          {partnerType === "hotel" ? <Building2 className="w-3 h-3"/> : <Plane className="w-3 h-3" />}
+                           {review.item}
+                        </span>
                       </div>
                       <span className="text-xs text-gray-400 shrink-0">{review.date}</span>
                     </div>
@@ -312,18 +327,21 @@ export default function ReviewsPage() {
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Popular Mentions</h3>
             <div className="flex flex-wrap gap-2">
-              {[
+              {(partnerType === "hotel" ? [
                 { word: "bersih", count: 42, positive: true },
                 { word: "ramah", count: 38, positive: true },
                 { word: "nyaman", count: 35, positive: true },
                 { word: "strategis", count: 28, positive: true },
                 { word: "sarapan", count: 24, positive: true },
                 { word: "WiFi", count: 18, positive: false },
-                { word: "AC", count: 12, positive: false },
-                { word: "view", count: 20, positive: true },
-                { word: "kolam", count: 15, positive: true },
-                { word: "parking", count: 8, positive: false },
-              ].map((kw) => (
+              ] : [
+                { word: "tepat waktu", count: 50, positive: true },
+                { word: "nyaman", count: 45, positive: true },
+                { word: "pelayanan", count: 40, positive: true },
+                { word: "makanan", count: 30, positive: true },
+                { word: "bagasi", count: 12, positive: false },
+                { word: "delay", count: 8, positive: false },
+              ]).map((kw) => (
                 <span
                   key={kw.word}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium border ${

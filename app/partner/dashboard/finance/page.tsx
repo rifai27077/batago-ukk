@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Wallet, ArrowUpRight, ArrowDownRight, Clock, Download, Building, CreditCard, TrendingUp, Banknote } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, Clock, Download, Building, CreditCard, TrendingUp, Banknote, Plane } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,6 +12,7 @@ import {
   Tooltip,
 } from "recharts";
 import Pagination from "@/components/partner/dashboard/Pagination";
+import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 
 const revenueData = [
   { month: "Sep", gross: 22500000, commission: 2250000, net: 20250000 },
@@ -33,7 +34,7 @@ interface Transaction {
   type: "earning" | "payout" | "refund";
 }
 
-const transactions: Transaction[] = [
+const hotelTransactions: Transaction[] = [
   { id: "1", date: "16 Feb 2026", description: "Deluxe Room — Ahmad Rifai", bookingId: "BG-240216-001", gross: "Rp 1.700.000", commission: "-Rp 170.000", net: "Rp 1.530.000", type: "earning" },
   { id: "2", date: "15 Feb 2026", description: "Suite Room — Budi Pratama", bookingId: "BG-240216-002", gross: "Rp 4.500.000", commission: "-Rp 450.000", net: "Rp 4.050.000", type: "earning" },
   { id: "3", date: "14 Feb 2026", description: "Weekly Payout — BCA ****7890", bookingId: "-", gross: "-", commission: "-", net: "-Rp 28.500.000", type: "payout" },
@@ -43,6 +44,16 @@ const transactions: Transaction[] = [
   { id: "7", date: "10 Feb 2026", description: "Suite Room — Tono Sucipto", bookingId: "BG-240213-006", gross: "Rp 6.750.000", commission: "-Rp 675.000", net: "Rp 6.075.000", type: "earning" },
 ];
 
+const airlineTransactions: Transaction[] = [
+  { id: "1", date: "16 Feb 2026", description: "Ticket Sale (3 Pax) — CGK-DPS", bookingId: "PNR-AX789", gross: "Rp 4.500.000", commission: "-Rp 450.000", net: "Rp 4.050.000", type: "earning" },
+  { id: "2", date: "15 Feb 2026", description: "Baggage Add-on — Budi P.", bookingId: "PNR-OY221", gross: "Rp 350.000", commission: "-Rp 35.000", net: "Rp 315.000", type: "earning" },
+  { id: "3", date: "14 Feb 2026", description: "Weekly Payout — BCA ****7890", bookingId: "-", gross: "-", commission: "-", net: "-Rp 85.000.000", type: "payout" },
+  { id: "4", date: "13 Feb 2026", description: "Ticket Sale (1 Pax) — SUB-KUL", bookingId: "PNR-ZZ112", gross: "Rp 1.200.000", commission: "-Rp 120.000", net: "Rp 1.080.000", type: "earning" },
+  { id: "5", date: "12 Feb 2026", description: "Refund — Ticket Loss", bookingId: "PNR-KL998", gross: "-", commission: "-", net: "-Rp 1.200.000", type: "refund" },
+  { id: "6", date: "11 Feb 2026", description: "Cargo Shipment — Log-001", bookingId: "AWB-88212", gross: "Rp 8.500.000", commission: "-Rp 850.000", net: "Rp 7.650.000", type: "earning" },
+  { id: "7", date: "10 Feb 2026", description: "In-flight Meal Pre-order", bookingId: "PNR-QQ334", gross: "Rp 150.000", commission: "-Rp 15.000", net: "Rp 135.000", type: "earning" },
+];
+
 const formatCurrency = (v: number) => {
   if (v >= 1000000) return `${(v / 1000000).toFixed(1)}jt`;
   if (v >= 1000) return `${(v / 1000).toFixed(0)}rb`;
@@ -50,15 +61,22 @@ const formatCurrency = (v: number) => {
 };
 
 export default function FinancePage() {
+  const { partnerType } = usePartner();
   const [period, setPeriod] = useState<"weekly" | "monthly">("monthly");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
+
+  const transactions = partnerType === "hotel" ? hotelTransactions : airlineTransactions;
+  const balance = partnerType === "hotel" ? "Rp 8.7M" : "Rp 142.5M";
+  const pending = partnerType === "hotel" ? "Rp 5.6M" : "Rp 45.2M";
+  const totalEarned = partnerType === "hotel" ? "Rp 170.2M" : "Rp 2.45B";
+  const commission = partnerType === "hotel" ? "Rp 17.0M" : "Rp 245.0M";
 
   const totalPages = Math.ceil(transactions.length / itemsPerPage);
   const paginatedTransactions = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return transactions.slice(start, start + itemsPerPage);
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, itemsPerPage, transactions]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -95,7 +113,7 @@ export default function FinancePage() {
               <ArrowUpRight className="w-3 h-3" /> Available
             </span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Rp 8.7M</h3>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{balance}</h3>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Available Balance</p>
         </div>
 
@@ -108,7 +126,7 @@ export default function FinancePage() {
               Pending
             </span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Rp 5.6M</h3>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{pending}</h3>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Pending Settlement</p>
         </div>
 
@@ -121,7 +139,7 @@ export default function FinancePage() {
               <ArrowUpRight className="w-3 h-3" /> +12%
             </span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Rp 170.2M</h3>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{totalEarned}</h3>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Total Earned (YTD)</p>
         </div>
 
@@ -131,7 +149,7 @@ export default function FinancePage() {
               <Banknote className="w-5 h-5 text-red-500" />
             </div>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Rp 17.0M</h3>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{commission}</h3>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Platform Commission (YTD)</p>
         </div>
       </div>
@@ -193,7 +211,7 @@ export default function FinancePage() {
                 <tr className="bg-gray-50/80 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                   <th className="text-left px-5 py-3 font-semibold">Date</th>
                   <th className="text-left px-5 py-3 font-semibold">Description</th>
-                  <th className="text-left px-5 py-3 font-semibold">Booking ID</th>
+                  <th className="text-left px-5 py-3 font-semibold">Reference</th>
                   <th className="text-right px-5 py-3 font-semibold">Net</th>
                 </tr>
               </thead>
@@ -201,7 +219,12 @@ export default function FinancePage() {
                 {paginatedTransactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
                     <td className="px-5 py-3 text-gray-500 dark:text-slate-400 whitespace-nowrap">{tx.date}</td>
-                    <td className="px-5 py-3 text-gray-800 dark:text-slate-200 font-medium">{tx.description}</td>
+                    <td className="px-5 py-3 font-medium">
+                       <div className="flex items-center gap-2">
+                          {tx.description.includes("Ticket") && <Plane className="w-3 h-3 text-gray-400" />}
+                          <span className="text-gray-800 dark:text-slate-200">{tx.description}</span>
+                       </div>
+                    </td>
                     <td className="px-5 py-3 font-mono text-xs text-gray-400">{tx.bookingId}</td>
                     <td className={`px-5 py-3 text-right font-bold whitespace-nowrap ${
                       tx.type === "earning" ? "text-emerald-600 dark:text-emerald-500" : tx.type === "refund" ? "text-red-500" : "text-blue-600 dark:text-blue-500"

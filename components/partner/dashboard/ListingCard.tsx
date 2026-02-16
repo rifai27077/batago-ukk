@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Star, Bed, MoreVertical, Pencil, Eye, Trash2 } from "lucide-react";
+import { MapPin, Star, Bed, MoreVertical, Pencil, Eye, Trash2, Check } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import type { StatusType } from "./StatusBadge";
 import { useState, useRef, useEffect } from "react";
@@ -22,9 +22,12 @@ interface Listing {
 
 interface ListingCardProps {
   listing: Listing;
+  selectable?: boolean;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
 }
 
-export default function ListingCard({ listing }: ListingCardProps) {
+export default function ListingCard({ listing, selectable = false, selected = false, onSelect }: ListingCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -37,15 +40,42 @@ export default function ListingCard({ listing }: ListingCardProps) {
   }, []);
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 overflow-hidden hover:shadow-md transition-shadow duration-200 group">
+    <div 
+      className={`bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-200 group relative ${
+        selected 
+          ? "border-primary ring-1 ring-primary shadow-md" 
+          : "border-gray-100 dark:border-slate-700 hover:shadow-md"
+      }`}
+    >
       {/* Image */}
-      <div className="relative h-44 overflow-hidden">
+      <div className="relative h-44 overflow-hidden rounded-t-2xl">
         <Image
           src={listing.image}
           alt={listing.name}
           fill
-          className="object-cover"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
+        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        
+        {/* Selection Checkbox - Always visible if selected or selectable mode is active, otherwise on hover */}
+        {(selectable || selected) && onSelect && (
+          <div className="absolute top-3 left-3 z-10">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(listing.id);
+              }}
+              className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                selected
+                  ? "bg-primary border-primary text-white"
+                  : "bg-white/80 border-gray-300 hover:border-primary backdrop-blur-sm"
+              }`}
+            >
+              {selected && <Check className="w-4 h-4" />}
+            </button>
+          </div>
+        )}
+
         <div className="absolute top-3 right-3">
           <StatusBadge status={listing.status} />
         </div>
@@ -79,7 +109,7 @@ export default function ListingCard({ listing }: ListingCardProps) {
         </div>
 
         <div className="flex items-center gap-1 mt-1.5 text-sm text-gray-500 dark:text-slate-400">
-          <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+          <MapPin className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">{listing.location}</span>
         </div>
 
