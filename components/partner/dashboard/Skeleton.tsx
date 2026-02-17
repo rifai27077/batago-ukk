@@ -17,7 +17,7 @@ function ShimmerBlock({ className = "", style }: { className?: string; style?: R
 /* ─── Stat Card Skeleton ─── */
 export function StatCardSkeleton() {
   return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-gray-100 dark:border-slate-700">
       <div className="flex items-start justify-between mb-4">
         <ShimmerBlock className="w-11 h-11 rounded-xl" />
         <ShimmerBlock className="w-14 h-6 rounded-full" />
@@ -32,7 +32,7 @@ export function StatCardSkeleton() {
 /* ─── Chart Skeleton ─── */
 export function ChartSkeleton({ height = "h-72" }: { height?: string }) {
   return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-gray-100 dark:border-slate-700">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -56,9 +56,9 @@ export function ChartSkeleton({ height = "h-72" }: { height?: string }) {
 /* ─── Table Skeleton ─── */
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
         <div>
           <ShimmerBlock className="w-36 h-5 mb-1.5" />
           <ShimmerBlock className="w-28 h-3" />
@@ -67,14 +67,14 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
       </div>
       {/* Table header */}
       <div className="hidden md:block">
-        <div className="flex items-center gap-4 bg-gray-50/80 px-5 py-3">
+        <div className="flex items-center gap-4 bg-gray-50/80 dark:bg-slate-700/50 px-5 py-3">
           {[80, 100, 80, 90, 70, 80, 50].map((w, i) => (
             <ShimmerBlock key={i} className="h-3" style={{ width: `${w}px` }} />
           ))}
         </div>
         {/* Table rows */}
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-gray-50 last:border-0">
+          <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-gray-50 dark:border-slate-700/50 last:border-0">
             <ShimmerBlock className="w-28 h-4" />
             <ShimmerBlock className="w-24 h-4" />
             <ShimmerBlock className="w-20 h-4" />
@@ -92,7 +92,7 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 /* ─── Activity Feed Skeleton ─── */
 export function ActivitySkeleton({ items = 5 }: { items?: number }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
       <ShimmerBlock className="w-28 h-5 mb-4" />
       <div className="space-y-4">
         {Array.from({ length: items }).map((_, i) => (
@@ -115,13 +115,13 @@ export function DashboardSkeleton() {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="bg-white rounded-2xl p-6 md:p-8">
-        <ShimmerBlock className="w-72 h-7 mb-3 bg-white" />
-        <ShimmerBlock className="w-96 h-4 bg-white" />
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-8">
+        <ShimmerBlock className="w-72 h-7 mb-3" />
+        <ShimmerBlock className="w-96 h-4" />
         <div className="flex gap-3 mt-5">
-          <ShimmerBlock className="w-36 h-9 rounded-xl bg-white" />
-          <ShimmerBlock className="w-36 h-9 rounded-xl bg-white" />
-          <ShimmerBlock className="w-40 h-9 rounded-xl bg-white" />
+          <ShimmerBlock className="w-36 h-9 rounded-xl" />
+          <ShimmerBlock className="w-36 h-9 rounded-xl" />
+          <ShimmerBlock className="w-40 h-9 rounded-xl" />
         </div>
       </div>
 

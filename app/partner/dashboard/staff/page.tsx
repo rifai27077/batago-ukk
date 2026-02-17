@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Search, MoreHorizontal, Shield, Mail, User } from "lucide-react";
 import AddStaffModal from "@/components/partner/dashboard/AddStaffModal";
+import StaffCard from "@/components/partner/dashboard/StaffCard";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 
 const mockStaff = [
@@ -66,40 +67,7 @@ export default function StaffPage() {
       {/* Staff Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {staffList.map((staff) => (
-          <div key={staff.id} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 hover:border-primary/30 transition-all group">
-            <div className="flex justify-between items-start mb-4">
-               <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-lg font-bold text-gray-500">
-                  {staff.name.charAt(0)}
-               </div>
-               <button className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400">
-                  <MoreHorizontal className="w-5 h-5" />
-               </button>
-            </div>
-            
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{staff.name}</h3>
-            
-            <div className="space-y-2 mt-3">
-               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
-                  <Shield className="w-4 h-4 text-primary" />
-                  <span>{staff.role}</span>
-               </div>
-               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span>{staff.email}</span>
-               </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-700 flex items-center justify-between">
-               <span className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize ${
-                  staff.status === 'Active' 
-                     ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400' 
-                     : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400'
-               }`}>
-                  {staff.status}
-               </span>
-               <span className="text-xs text-gray-400">Active {staff.lastActive}</span>
-            </div>
-          </div>
+          <StaffCard key={staff.id} staff={staff} />
         ))}
       </div>
     </div>

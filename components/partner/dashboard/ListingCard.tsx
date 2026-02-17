@@ -92,7 +92,7 @@ export default function ListingCard({ listing, selectable = false, selected = fa
             >
               <MoreVertical className="w-4 h-4" />
             </button>
-            {menuOpen && (
+              {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-700 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 overflow-hidden z-20">
                 <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors">
                   <Eye className="w-4 h-4" /> View
@@ -100,8 +100,9 @@ export default function ListingCard({ listing, selectable = false, selected = fa
                 <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors">
                   <Pencil className="w-4 h-4" /> Edit
                 </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
-                  <Trash2 className="w-4 h-4" /> Delete
+                <div className="h-px bg-gray-100 dark:bg-slate-600 my-1"></div>
+                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors">
+                  <Trash2 className="w-4 h-4" /> Remove
                 </button>
               </div>
             )}
