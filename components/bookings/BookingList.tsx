@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import BookingCard from "./BookingCard";
-import { Plane, Bed, Filter } from "lucide-react";
+import { Plane, Bed, Filter, FileText } from "lucide-react";
 
 // Mock Data
 const MOCK_BOOKINGS = [
