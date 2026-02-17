@@ -6,15 +6,15 @@ const footerLinks = {
   "Our Destinations": ["Canada", "Alaska", "France", "Iceland"],
   "Our Activities": ["Northern Lights", "Cruising & Sailing", "Multi-activities", "Kayaking"],
   "Travel Blogs": ["Bali Travel Guide", "Sri Lanka Travel Guide", "Peru Travel Guide", "Bali Travel Guide"],
-  "About Us": ["Our Story", { label: "Work with us", href: "/partner" }],
-  "Contact Us": ["Our Story", { label: "Work with us", href: "/partner" }],
+  "About Us": [{ label: "Our Story", href: "/about" }, { label: "Work with us", href: "/partner" }, { label: "FAQ", href: "/faq" }],
+  "Contact Us": [{ label: "Get in Touch", href: "/contact" }, { label: "Partner Support", href: "/partner" }],
 };
 
 export default function Footer() {
   return (
     <footer className="bg-primary text-white pt-24 pb-12 px-6 relative overflow-hidden">
       {/* Decorative Elements */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-20" />
+      <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-primary to-transparent opacity-20" />
       <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
 
@@ -95,8 +95,8 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} BataGo. All rights reserved.
           </p>
           <div className="flex gap-8">
-            <Link href="#" className="text-white/70 text-sm hover:text-white transition-colors">Privacy Policy</Link>
-            <Link href="#" className="text-white/70 text-sm hover:text-white transition-colors">Terms of Service</Link>
+            <Link href="/privacy" className="text-white/70 text-sm hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="text-white/70 text-sm hover:text-white transition-colors">Terms of Service</Link>
           </div>
         </div>
       </div>

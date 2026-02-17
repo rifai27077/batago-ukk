@@ -7,6 +7,8 @@ import StaysOverview from "@/components/stays/detail/StaysOverview";
 import StaysPolicies from "@/components/stays/detail/StaysPolicies";
 import StaysRoomList from "@/components/stays/detail/StaysRoomList";
 
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
+
 export default function StaysDetailPage() {
   const hotelData = {
     title: "The Ritz-Carlton Bali",
@@ -25,7 +27,11 @@ export default function StaysDetailPage() {
     <div className="min-h-screen bg-white font-sans flex flex-col">
       <Header />
       
-      <main className="flex-1 pb-12 lg:pb-24">
+      <main className="flex-1 pb-12 lg:pb-24 pt-[72px]">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+             <Breadcrumbs items={[{ label: "Stays", href: "/stays" }, { label: "Bali", href: "/stays/list" }, { label: "The Ritz-Carlton Bali" }]} />
+        </div>
+
         {/* Hero Section */}
         <StaysDetailHero
           title={hotelData.title}

@@ -7,6 +7,8 @@ import EconomyFeatures from "@/components/flights/detail/EconomyFeatures";
 import AirlinePolicies from "@/components/flights/detail/AirlinePolicies";
 import FlightSegmentCard from "@/components/flights/detail/FlightSegmentCard";
 
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
+
 export default function FlightDetailPage() {
   const flightData = {
     title: "Emirates A380 Airbus",
@@ -28,7 +30,11 @@ export default function FlightDetailPage() {
     <div className="min-h-screen bg-white font-sans flex flex-col">
       <Header />
       
-      <main className="flex-1 pb-12 lg:pb-24">
+      <main className="flex-1 pb-12 lg:pb-24 pt-[72px]">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+            <Breadcrumbs items={[{ label: "Flights", href: "/flights" }, { label: "Jakarta to Istanbul" }]} />
+        </div>
+
         {/* Hero Section */}
         <FlightDetailHero
           title={flightData.title}
