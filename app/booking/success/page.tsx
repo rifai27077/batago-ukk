@@ -1,4 +1,4 @@
-import BookingSuccess from "@/components/booking/BookingSuccess";
+import BookingSuccess from "@/components/bookings/BookingSuccess";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
