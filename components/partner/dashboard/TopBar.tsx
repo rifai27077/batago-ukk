@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Menu, Search, Bell, ChevronDown, User, Settings, LogOut, Check, BellOff, Sun, Moon, Plane, Building2 } from "lucide-react";
+import { Menu, Bell, ChevronDown, User, Settings, LogOut, Check, BellOff, Sun, Moon, Plane, Building2 } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { useDateRange } from "./DateRangeContext";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
+import GlobalSearch from "@/components/GlobalSearch";
 
 interface TopBarProps {
   onMenuToggle: () => void;
@@ -86,14 +87,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="hidden sm:flex items-center bg-gray-50 dark:bg-slate-700 rounded-xl px-3 py-2 gap-2 w-72 border border-gray-100 dark:border-slate-600 focus-within:border-primary/30 focus-within:ring-2 focus-within:ring-primary/10 transition-colors">
-          <Search className="w-4 h-4 text-gray-400 dark:text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search bookings, guests..."
-            className="bg-transparent outline-none text-sm text-gray-700 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 w-full"
-          />
-        </div>
+        <GlobalSearch context="partner" placeholder="Search bookings, guests..." />
       </div>
 
       {/* Right: Date Filter + Theme Toggle + Notifications + Profile */}
