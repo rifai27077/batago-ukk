@@ -6,6 +6,7 @@ import { useTheme } from "./ThemeProvider";
 import { useDateRange } from "./DateRangeContext";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 import GlobalSearch from "@/components/GlobalSearch";
+import { logout, getProfile, AuthResponse } from "@/lib/api";
 
 interface TopBarProps {
   onMenuToggle: () => void;
@@ -34,6 +35,19 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
+  const [userData, setUserData] = useState<AuthResponse["user"] | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await getProfile();
+        setUserData(res.user);
+      } catch (error) {
+        console.error("Failed to fetch user in topbar", error);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
@@ -214,11 +228,15 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             className="flex items-center gap-2 p-1.5 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl transition-colors"
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-teal-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
-              HS
+              {userData?.name ? userData.name.charAt(0) : <User className="w-4 h-4" />}
             </div>
             <div className="hidden md:block text-left">
-              <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 leading-tight">Bakso</p>
-              <p className="text-[11px] text-gray-400 dark:text-slate-500 leading-tight">Partner</p>
+              <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 leading-tight">
+                {userData?.name || "Partner"}
+              </p>
+              <p className="text-[11px] text-gray-400 dark:text-slate-500 leading-tight">
+                {userData?.role || "Owner"}
+              </p>
             </div>
             <ChevronDown className="w-4 h-4 text-gray-400 hidden md:block" />
           </button>
@@ -226,19 +244,31 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           {showProfile && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden z-50">
               <div className="p-4 border-b border-gray-100 dark:border-slate-700">
-                <p className="font-bold text-sm text-gray-800 dark:text-slate-200">Bakso</p>
-                <p className="text-xs text-gray-400 dark:text-slate-500">bakso@email.com</p>
+                <p className="font-bold text-sm text-gray-800 dark:text-slate-200">{userData?.name || "Partner"}</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500">{userData?.email || ""}</p>
               </div>
               <div className="py-1">
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                <button 
+                  onClick={() => window.location.href = "/partner/dashboard/settings"}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                >
                   <User className="w-4 h-4" /> Profile
                 </button>
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                <button 
+                  onClick={() => window.location.href = "/partner/dashboard/settings"}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                >
                   <Settings className="w-4 h-4" /> Settings
                 </button>
               </div>
               <div className="border-t border-gray-100 dark:border-slate-700 py-1">
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                <button
+                  onClick={() => {
+                    logout();
+                    window.location.href = "/";
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                >
                   <LogOut className="w-4 h-4" /> Log Out
                 </button>
               </div>

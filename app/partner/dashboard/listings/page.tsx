@@ -1,87 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, Plus, LayoutGrid, List } from "lucide-react";
 import ListingCard from "@/components/partner/dashboard/ListingCard";
 import type { Listing } from "@/components/partner/dashboard/ListingCard";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import EmptyState from "@/components/partner/dashboard/EmptyState";
 import AddListingModal from "@/components/partner/dashboard/AddListingModal";
-
-const mockListings: Listing[] = [
-  {
-    id: "1",
-    name: "Hotel Santika Premiere Batam",
-    image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    location: "Batam, Kepulauan Riau",
-    rating: 4.6,
-    reviewCount: 128,
-    rooms: 45,
-    occupancy: 78,
-    status: "active",
-    type: "hotel",
-  },
-  {
-    id: "2",
-    name: "Santika Beach Resort",
-    image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    location: "Nongsa, Batam",
-    rating: 4.8,
-    reviewCount: 96,
-    rooms: 32,
-    occupancy: 92,
-    status: "active",
-    type: "hotel",
-  },
-  {
-    id: "3",
-    name: "Santika City Hotel",
-    image: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    location: "Nagoya, Batam",
-    rating: 4.3,
-    reviewCount: 64,
-    rooms: 28,
-    occupancy: 55,
-    status: "active",
-    type: "hotel",
-  },
-  {
-    id: "4",
-    name: "Villa Paradise Bintan",
-    image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    location: "Lagoi, Bintan",
-    rating: 4.9,
-    reviewCount: 42,
-    rooms: 12,
-    occupancy: 85,
-    status: "draft",
-    type: "hotel",
-  },
-  {
-    id: "5",
-    name: "Santika Express Airport",
-    image: "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    location: "Hang Nadim, Batam",
-    rating: 4.1,
-    reviewCount: 31,
-    rooms: 20,
-    occupancy: 38,
-    status: "inactive",
-    type: "hotel",
-  },
-  {
-    id: "6",
-    name: "The Grand Waterfront Hotel",
-    image: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    location: "Waterfront City, Batam",
-    rating: 4.7,
-    reviewCount: 205,
-    rooms: 60,
-    occupancy: 88,
-    status: "active",
-    type: "hotel",
-  },
-];
+import { getPartnerListings, createPartnerListing, deletePartnerListing } from "@/lib/api";
 
 const statusFilters = ["All", "Active", "Draft", "Inactive"] as const;
 
@@ -93,20 +19,96 @@ export default function ListingsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [totalListings, setTotalListings] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleSaveListing = (data: any) => {
-    console.log("Saving Listing:", data);
+  useEffect(() => {
+    async function fetchListings() {
+      try {
+        const res = await getPartnerListings({ page: 1, limit: 100 });
+        if (res.data && res.data.length > 0) {
+          const mapped: Listing[] = res.data.map((l) => ({
+            id: String(l.ID),
+            name: l.name,
+            image: l.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            location: l.city?.name ? `${l.city.name}, ${l.city.country}` : l.address,
+            rating: l.rating || 0,
+            reviewCount: l.total_reviews || 0,
+            rooms: l.rooms || 0,
+            occupancy: l.occupancy || 0,
+            status: (l.status || "active") as "active" | "draft" | "inactive",
+            type: "hotel" as const,
+          }));
+          setListings(mapped);
+          setTotalListings(res.meta.total);
+        }
+      } catch (err) {
+        console.error("Failed to fetch listings", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchListings();
+  }, []);
+
+  const handleSaveListing = async (data: any) => {
+    try {
+      let imageUrl = "";
+      
+      // Handle image upload if exists
+      if (data.image && data.image instanceof File) {
+        const { uploadListingImage } = await import("@/lib/api");
+        const uploadRes = await uploadListingImage(data.image);
+        imageUrl = uploadRes.url;
+      }
+
+      await createPartnerListing({
+        name: data.name,
+        city_id: data.city_id || 1,
+        description: data.description || "",
+        address: data.address || data.location || "",
+        type: data.type,
+        rooms: parseInt(data.rooms) || 0,
+        price: data.price,
+        amenities: data.amenities,
+        image_url: imageUrl,
+        latitude: data.latitude,
+        longitude: data.longitude,
+      });
+
+      // Refetch listings
+      const res = await getPartnerListings({ page: 1, limit: 100 });
+      if (res.data) {
+        const mapped: Listing[] = res.data.map((l) => ({
+          id: String(l.ID),
+          name: l.name,
+          image: l.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+          location: l.city?.name ? `${l.city.name}, ${l.city.country}` : l.address,
+          rating: l.rating || 0,
+          reviewCount: l.total_reviews || 0,
+          rooms: l.rooms || l.room_count || 0,
+          occupancy: l.occupancy || 0,
+          status: (l.status || "active") as "active" | "draft" | "inactive",
+          type: (l.type?.toLowerCase() || "hotel") as any,
+        }));
+        setListings(mapped);
+        setTotalListings(res.meta.total);
+      }
+    } catch (err) {
+      console.error("Failed to create listing", err);
+      alert("Failed to create listing: " + (err instanceof Error ? err.message : "Unknown error"));
+    }
     setIsAddModalOpen(false);
-    // Add to state/API logic here
   };
 
   const filtered = useMemo(() => {
-    return mockListings.filter((l) => {
+    return listings.filter((l) => {
       const matchSearch = l.name.toLowerCase().includes(search.toLowerCase()) || l.location.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === "All" || l.status === statusFilter.toLowerCase();
       return matchSearch && matchStatus;
     });
-  }, [search, statusFilter]);
+  }, [search, statusFilter, listings]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedData = useMemo(() => {
@@ -156,7 +158,7 @@ export default function ListingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Listings</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{mockListings.length} properties listed</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{totalListings} properties listed</p>
         </div>
         <button 
           onClick={() => setIsAddModalOpen(true)}

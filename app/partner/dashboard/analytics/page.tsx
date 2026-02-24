@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Eye, MousePointerClick, CalendarCheck, CheckCircle, Users, MapPin, Download, Plane, Building2 } from "lucide-react";
 import { useDateRange } from "@/components/partner/dashboard/DateRangeContext";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
+import { getPartnerAnalytics, PartnerAnalyticsResponse } from "@/lib/api";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -19,98 +20,6 @@ import {
   Cell,
 } from "recharts";
 
-// Hotel Data
-const hotelFunnelData = [
-  { name: "Impressions", value: 12450, icon: Eye },
-  { name: "Clicks", value: 3820, icon: MousePointerClick },
-  { name: "Bookings", value: 312, icon: CalendarCheck },
-  { name: "Completed", value: 278, icon: CheckCircle },
-];
-
-const hotelConversionData = [
-  { month: "Sep", rate: 2.1 },
-  { month: "Oct", rate: 2.8 },
-  { month: "Nov", rate: 2.4 },
-  { month: "Dec", rate: 3.2 },
-  { month: "Jan", rate: 3.0 },
-  { month: "Feb", rate: 3.5 },
-];
-
-const hotelGuestDemographics = [
-  { name: "Solo", value: 22, color: "#14B8A6" },
-  { name: "Couple", value: 35, color: "#3B82F6" },
-  { name: "Family", value: 28, color: "#F59E0B" },
-  { name: "Business", value: 15, color: "#8B5CF6" },
-];
-
-const hotelTopRegions = [
-  { region: "Jakarta", bookings: 86, pct: 28 },
-  { region: "Surabaya", bookings: 52, pct: 17 },
-  { region: "Singapore", bookings: 45, pct: 14 },
-  { region: "Medan", bookings: 38, pct: 12 },
-  { region: "Bandung", bookings: 31, pct: 10 },
-  { region: "Others", bookings: 60, pct: 19 },
-];
-
-const hotelBookingChannels = [
-  { channel: "Search", bookings: 145, pct: 47 },
-  { channel: "Direct Link", bookings: 82, pct: 26 },
-  { channel: "Promo/Deals", bookings: 55, pct: 18 },
-  { channel: "Referral", bookings: 30, pct: 9 },
-];
-
-const hotelMetricData = [
-  { month: "Sep", value: 620000 },
-  { month: "Oct", value: 740000 },
-  { month: "Nov", value: 680000 },
-  { month: "Dec", value: 890000 },
-  { month: "Jan", value: 810000 },
-  { month: "Feb", value: 950000 },
-];
-
-// Airline Data
-const airlineFunnelData = [
-  { name: "Impressions", value: 45000, icon: Eye },
-  { name: "Searches", value: 12500, icon: MousePointerClick },
-  { name: "Tickets", value: 1800, icon: Plane }, // Standard icon usage
-  { name: "Flown", value: 1650, icon: CheckCircle },
-];
-
-const airlineConversionData = [
-  { month: "Sep", rate: 3.5 },
-  { month: "Oct", rate: 3.8 },
-  { month: "Nov", rate: 3.2 },
-  { month: "Dec", rate: 4.5 },
-  { month: "Jan", rate: 4.0 },
-  { month: "Feb", rate: 4.2 },
-];
-
-const airlinePassengerDemographics = [
-  { name: "Economy", value: 65, color: "#3B82F6" },
-  { name: "Business", value: 15, color: "#8B5CF6" },
-  { name: "First", value: 5, color: "#F59E0B" },
-  { name: "Promo", value: 15, color: "#14B8A6" },
-];
-
-const airlineTopRoutes = [
-  { region: "CGK - DPS", bookings: 450, pct: 35 },
-  { region: "CGK - SIN", bookings: 320, pct: 25 },
-  { region: "SUB - KUL", bookings: 180, pct: 14 },
-  { region: "DPS - SYD", bookings: 150, pct: 12 },
-  { region: "KNO - PEN", bookings: 100, pct: 8 },
-  { region: "Others", bookings: 80, pct: 6 },
-];
-
-const airlineMetricData = [ // RASK or Yield
-  { month: "Sep", value: 850 }, // Rp 850 per ASK
-  { month: "Oct", value: 920 },
-  { month: "Nov", value: 880 },
-  { month: "Dec", value: 1100 },
-  { month: "Jan", value: 950 },
-  { month: "Feb", value: 980 },
-];
-
-
 const formatCurrency = (v: number) => {
   if (v >= 1000000) return `${(v / 1000000).toFixed(1)}jt`;
   if (v >= 1000) return `${(v / 1000).toFixed(0)}rb`;
@@ -120,18 +29,60 @@ const formatCurrency = (v: number) => {
 export default function AnalyticsPage() {
   const { dateRange } = useDateRange();
   const { partnerType } = usePartner();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<PartnerAnalyticsResponse | null>(null);
 
-  // Select Data based on Partner Type
-  const funnelData = partnerType === "hotel" ? hotelFunnelData : airlineFunnelData;
-  const conversionData = partnerType === "hotel" ? hotelConversionData : airlineConversionData;
-  const demographics = partnerType === "hotel" ? hotelGuestDemographics : airlinePassengerDemographics;
-  const topRegions = partnerType === "hotel" ? hotelTopRegions : airlineTopRoutes;
-  const channels = partnerType === "hotel" ? hotelBookingChannels : hotelBookingChannels; // Reuse channels for now
-  const metricData = partnerType === "hotel" ? hotelMetricData : airlineMetricData;
-  
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await getPartnerAnalytics();
+        setData(res);
+      } catch (e) {
+        console.error("Failed to fetch analytics", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
   const metricLabel = partnerType === "hotel" ? "RevPAR Trend" : "Yield Trend (RASK)";
   const metricUnit = partnerType === "hotel" ? "Rp" : "Rp/km";
   const demographicLabel = partnerType === "hotel" ? "Guest Type" : "Seat Class";
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <div className="h-8 w-48 bg-gray-200 dark:bg-slate-700 rounded animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <div key={i} className="h-32 bg-gray-200 dark:bg-slate-700 rounded-2xl animate-pulse" />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+           <div className="h-64 bg-gray-200 dark:bg-slate-700 rounded-2xl animate-pulse" />
+           <div className="h-64 bg-gray-200 dark:bg-slate-700 rounded-2xl animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  const funnelData = data?.funnel || [];
+  const conversionData = data?.conversion || [];
+  const demographics = data?.demographics || [];
+  const metricData = data?.metric_data || [];
+  
+  // Icon mapping helper
+  const getIcon = (name: string) => {
+    switch (name) {
+      case "Impressions": return Eye;
+      case "Searches": 
+      case "Clicks": return MousePointerClick;
+      case "Bookings": 
+      case "Tickets": return partnerType === "hotel" ? CalendarCheck : Plane;
+      case "Completed": 
+      case "Flown": return CheckCircle;
+      default: return Eye;
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -140,7 +91,8 @@ export default function AnalyticsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics & Reports</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-            Performance from {dateRange.from?.toLocaleDateString()} to {dateRange.to?.toLocaleDateString()}
+            Performance overview
+            {/* from {dateRange.from?.toLocaleDateString()} to {dateRange.to?.toLocaleDateString()} */}
           </p>
         </div>
         <div className="flex gap-2">
@@ -156,13 +108,14 @@ export default function AnalyticsPage() {
           {partnerType === "hotel" ? "Booking Funnel" : "Sales Funnel"}
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {funnelData.map((item, i) => (
+          {funnelData.map((item, i) => {
+            const Icon = getIcon(item.name);
+            return (
             <div key={item.name} className="relative">
               <div className={`p-4 rounded-2xl border ${i === funnelData.length - 1 ? "bg-primary/5 border-primary/20" : "bg-gray-50 dark:bg-slate-900 border-gray-100 dark:border-slate-700"}`}>
                 <div className="flex items-center gap-3 mb-2">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${i === funnelData.length - 1 ? "bg-primary text-white" : "bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 shadow-sm"}`}>
-                     {/* Render icon properly if it's a function or component */}
-                     <item.icon className="w-4 h-4" />
+                     <Icon className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-medium text-gray-500 dark:text-slate-400">{item.name}</span>
                 </div>
@@ -174,7 +127,7 @@ export default function AnalyticsPage() {
                 )}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       </div>
 
@@ -266,35 +219,13 @@ export default function AnalyticsPage() {
 
         {/* Top Regions / Routes */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-5">
-             {partnerType === "hotel" ? "Top Guest Regions" : "Top Routes"}
-          </h3>
-          <div className="space-y-4">
-            {topRegions.map((item, index) => (
-              <div key={item.region} className="flex items-center gap-4">
-                <span className="text-sm font-bold text-gray-400 w-4">#{index + 1}</span>
-                <div className="flex-1">
-                  <div className="flex justify-between mb-1.5">
-                    <span className="text-sm font-semibold text-gray-800 dark:text-slate-200">{item.region}</span>
-                    <span className="text-xs font-medium text-gray-500">{item.pct}%</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full rounded-full transition-all duration-500" 
-                      style={{ 
-                        width: `${item.pct}%`,
-                        backgroundColor: index === 0 ? "#F59E0B" : index === 1 ? "#3B82F6" : "#14B8A6"
-                      }} 
-                    />
-                  </div>
-                </div>
-                <div className="text-right min-w-[60px]">
-                  <span className="text-sm font-bold text-gray-800 dark:text-slate-200">{item.bookings}</span>
-                  <p className="text-[10px] text-gray-400">bookings</p>
-                </div>
-              </div>
-            ))}
-          </div>
+           <div className="flex flex-col items-center justify-center h-full text-center p-10 text-gray-500">
+             <MapPin className="w-12 h-12 mb-4 text-gray-300" />
+             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Regional Data Coming Soon</h3>
+             <p className="text-sm max-w-xs mx-auto mt-2">
+               We are gathering more data to show you the top performing regions and routes for your business.
+             </p>
+           </div>
         </div>
       </div>
     </div>

@@ -7,7 +7,8 @@ interface Route {
   id: number;
   origin: string;
   destination: string;
-  flightNumber: string;
+  flightNumber?: string;
+  flight_number?: string;
   duration: string;
   aircraft: string;
   schedule: string | string[];
@@ -16,9 +17,10 @@ interface Route {
 
 interface RouteCardProps {
   route: Route;
+  onDelete?: () => void;
 }
 
-export default function RouteCard({ route }: RouteCardProps) {
+export default function RouteCard({ route, onDelete }: RouteCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -62,7 +64,7 @@ export default function RouteCard({ route }: RouteCardProps) {
           <div className="flex flex-wrap gap-6 text-sm">
             <div>
               <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">Flight Number</p>
-              <p className="font-bold text-gray-800 dark:text-slate-200">{route.flightNumber}</p>
+              <p className="font-bold text-gray-800 dark:text-slate-200">{route.flight_number || route.flightNumber}</p>
             </div>
             <div>
               <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">Aircraft</p>
@@ -105,7 +107,7 @@ export default function RouteCard({ route }: RouteCardProps) {
                 <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                   <Pencil className="w-4 h-4" /> Edit
                 </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                <button onClick={() => { setMenuOpen(false); onDelete?.(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
                   <Trash2 className="w-4 h-4" /> Delete
                 </button>
               </div>

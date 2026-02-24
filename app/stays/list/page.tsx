@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ChevronRight } from "lucide-react";
@@ -10,68 +11,83 @@ import StaysFilters from "@/components/stays/list/StaysFilters";
 import StaysSortTabs from "@/components/stays/list/StaysSortTabs";
 import StaysCard from "@/components/stays/list/StaysCard";
 import StaysSkeleton from "@/components/stays/list/StaysSkeleton";
+import { searchHotels, HotelResult, getFavourites, toggleFavourite } from "@/lib/api";
+import { toast } from "react-hot-toast";
 
-const initialStays = [
+// Fallback data for when backend is unavailable
+const fallbackStays = [
   {
+    id: 0,
     name: "The Ritz-Carlton Bali",
     image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
     location: "Nusa Dua, Bali",
     rating: 4.8,
     reviews: 1240,
-    price: "Rp. 4.500.000",
-    pricePerNight: "Rp. 4.500.000",
+    price: "Rp 4.500.000",
+    pricePerNight: "Rp 4.500.000",
     priceValue: 4500000,
     amenities: ["Pool", "Spa", "Beachfront", "Breakfast included"]
   },
   {
+    id: 0,
     name: "Ayana Resort and Spa",
     image: "https://images.unsplash.com/photo-1571896349842-6e53ce41be67?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
     location: "Jimbaran, Bali",
     rating: 4.7,
     reviews: 3500,
-    price: "Rp. 3.800.000",
-    pricePerNight: "Rp. 3.800.000",
+    price: "Rp 3.800.000",
+    pricePerNight: "Rp 3.800.000",
     priceValue: 3800000,
     amenities: ["Rock Bar", "12 Pools", "Private Beach", "Golf"]
   },
   {
+    id: 0,
     name: "Padma Resort Legian",
     image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
     location: "Legian, Bali",
     rating: 4.6,
     reviews: 2100,
-    price: "Rp. 2.900.000",
-    pricePerNight: "Rp. 2.900.000",
+    price: "Rp 2.900.000",
+    pricePerNight: "Rp 2.900.000",
     priceValue: 2900000,
     amenities: ["Infinity Pool", "Kids Club", "Garden", "Yoga"]
   },
-  {
-    name: "Hard Rock Hotel Bali",
-    image: "https://images.unsplash.com/photo-1618773928121-c32242e63f39?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-    location: "Kuta, Bali",
-    rating: 4.4,
-    reviews: 4200,
-    price: "Rp. 1.800.000",
-    pricePerNight: "Rp. 1.800.000",
-    priceValue: 1800000,
-    amenities: ["Live Music", "Water Slides", "Central Location", "Gym"]
-  },
-  {
-    name: "Potato Head Suites",
-    image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-    location: "Seminyak, Bali",
-    rating: 4.9,
-    reviews: 890,
-    price: "Rp. 5.200.000",
-    pricePerNight: "Rp. 5.200.000",
-    priceValue: 5200000,
-    amenities: ["Beach Club", "Sustainable", "Art Installation", "Sunset View"]
-  }
 ];
 
-export default function HotelListingPage() {
+function formatPrice(amount: number): string {
+  return `Rp ${amount.toLocaleString("id-ID")}`;
+}
+
+function mapHotelToCard(hotel: HotelResult) {
+  const primaryImage = hotel.images?.find((img) => img.is_primary);
+  const imageUrl = primaryImage?.url || hotel.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1000";
+  const cityName = hotel.city?.name || "";
+  const country = hotel.city?.country || "Indonesia";
+  const amenities = hotel.facilities?.map((f) => f.name) || [];
+  const price = hotel.lowest_price || 0;
+
+  return {
+    id: hotel.ID,
+    name: hotel.name,
+    image: imageUrl,
+    location: `${cityName}, ${country}`,
+    rating: hotel.rating || 0,
+    reviews: hotel.total_reviews || 0,
+    price: formatPrice(price),
+    pricePerNight: formatPrice(price),
+    priceValue: price,
+    amenities,
+  };
+}
+
+function HotelListingContent() {
+  const searchParams = useSearchParams();
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hotels, setHotels] = useState<ReturnType<typeof mapHotelToCard>[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [favouriteIds, setFavouriteIds] = useState<number[]>([]);
 
   // Filter States
   const [minPrice, setMinPrice] = useState("");
@@ -81,47 +97,101 @@ export default function HotelListingPage() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [selectedFreebies, setSelectedFreebies] = useState<string[]>([]);
 
-  // Simulate initial load
+  // Fetch hotels from API
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
+    async function fetchHotels() {
+      setIsLoading(true);
+      try {
+        const location = searchParams.get("location") || "";
+        const checkIn = searchParams.get("checkIn") || "";
+        const checkOut = searchParams.get("checkOut") || "";
+        const guests = searchParams.get("guests") || "";
+
+        const res = await searchHotels({
+          city: location,
+          checkin: checkIn,
+          checkout: checkOut,
+          guests: guests ? parseInt(guests) : undefined,
+          limit: 20,
+        });
+
+        if (res.data && res.data.length > 0) {
+          setHotels(res.data.map(mapHotelToCard));
+          setTotalCount(res.meta.total);
+          setUsingFallback(false);
+        } else {
+          setHotels(fallbackStays);
+          setTotalCount(fallbackStays.length);
+          setUsingFallback(true);
+        }
+      } catch {
+        setHotels(fallbackStays);
+        setTotalCount(fallbackStays.length);
+        setUsingFallback(true);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchHotels();
+  }, [searchParams]);
+
+  // Fetch Favourites independently
+  useEffect(() => {
+    async function fetchFavs() {
+      try {
+        const res = await getFavourites("hotel");
+        if (res.data) {
+          const ids = res.data.map((f: any) => f.hotel_id);
+          setFavouriteIds(ids);
+        }
+      } catch (err) {
+        console.error("Failed to fetch favourites", err);
+      }
+    }
+    fetchFavs();
   }, []);
 
+  const handleToggleFav = async (hotelId: number) => {
+    if (hotelId === 0) {
+      toast.error("Please login to save favourites");
+      return;
+    }
+    try {
+      const res = await toggleFavourite("hotel", undefined, hotelId);
+      if (res.is_favourite) {
+        setFavouriteIds(prev => [...prev, hotelId]);
+        toast.success("Added to favourites");
+      } else {
+        setFavouriteIds(prev => prev.filter(id => id !== hotelId));
+        toast.success("Removed from favourites");
+      }
+    } catch (err) {
+      toast.error("Failed to toggle favourite");
+    }
+  };
+
   const handleFilterChange = (changeFn: () => void) => {
-    setIsLoading(true);
     changeFn();
-    setTimeout(() => setIsLoading(false), 600);
   };
 
   const filteredAndSortedStays = useMemo(() => {
-    let result = initialStays.filter(stay => {
-        // Price Filter
-        const parsedMinPrice = minPrice ? Number(minPrice) : null;
-        const parsedMaxPrice = maxPrice ? Number(maxPrice) : null;
-        const matchesMinPrice = parsedMinPrice === null || stay.priceValue >= parsedMinPrice;
-        const matchesMaxPrice = parsedMaxPrice === null || stay.priceValue <= parsedMaxPrice;
-
-        // Rating Filter
-        const matchesRating = stay.rating >= minRating;
-
-        // Amenity Filter (Mock logic: loose match for demo)
-        // In real app, check if stay.amenities includes all selectedAmenities
-        // Here we just return true to not hide everything since data is sparse
-        const matchesAmenities = true; 
-
-        return matchesMinPrice && matchesMaxPrice && matchesRating && matchesAmenities;
+    let result = hotels.filter((stay) => {
+      const parsedMinPrice = minPrice ? Number(minPrice) : null;
+      const parsedMaxPrice = maxPrice ? Number(maxPrice) : null;
+      const matchesMinPrice = parsedMinPrice === null || stay.priceValue >= parsedMinPrice;
+      const matchesMaxPrice = parsedMaxPrice === null || stay.priceValue <= parsedMaxPrice;
+      const matchesRating = stay.rating >= minRating;
+      return matchesMinPrice && matchesMaxPrice && matchesRating;
     });
 
-    // Sort
     if (activeSort === "cheapest") {
-        result.sort((a, b) => a.priceValue - b.priceValue);
+      result.sort((a, b) => a.priceValue - b.priceValue);
     } else if (activeSort === "best") {
-        result.sort((a, b) => b.rating - a.rating);
-    } 
-    // "recommended" is default order
+      result.sort((a, b) => b.rating - a.rating);
+    }
 
     return result;
-  }, [minPrice, maxPrice, minRating, activeSort, selectedAmenities]);
+  }, [hotels, minPrice, maxPrice, minRating, activeSort]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -141,6 +211,13 @@ export default function HotelListingPage() {
             <ChevronRight className="w-4 h-4" />
             <span className="font-semibold text-primary">List</span>
         </div>
+
+        {/* Fallback Notice */}
+        {usingFallback && !isLoading && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                <strong>Note:</strong> Showing sample data. Refine your search or check backend connection.
+            </div>
+        )}
 
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 relative">
           
@@ -225,7 +302,7 @@ export default function HotelListingPage() {
             
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                  <p className="text-sm font-bold text-foreground">
-                    Showing {filteredAndSortedStays.length} of <span className="text-secondary">{initialStays.length} places</span>
+                    Showing {filteredAndSortedStays.length} of <span className="text-secondary">{totalCount} places</span>
                  </p>
             </div>
 
@@ -235,10 +312,12 @@ export default function HotelListingPage() {
                     <StaysSkeleton key={idx} />
                 ))
               ) : filteredAndSortedStays.length > 0 ? (
-                filteredAndSortedStays.map((stay, idx) => (
+                filteredAndSortedStays.map((stay) => (
                     <StaysCard 
-                        key={idx} 
+                        key={stay.id} 
                         {...stay} 
+                        isFavourite={favouriteIds.includes(stay.id)}
+                        onToggle={() => handleToggleFav(stay.id)}
                     />
                 ))
               ) : (
@@ -264,5 +343,13 @@ export default function HotelListingPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function HotelListingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <HotelListingContent />
+    </Suspense>
   );
 }

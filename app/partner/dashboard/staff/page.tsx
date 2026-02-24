@@ -1,31 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Search, MoreHorizontal, Shield, Mail, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Search, Loader2 } from "lucide-react";
 import AddStaffModal from "@/components/partner/dashboard/AddStaffModal";
 import StaffCard from "@/components/partner/dashboard/StaffCard";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
-
-const mockStaff = [
-  { id: 1, name: "Budi Santoso", email: "budi@hotel.com", role: "General Manager", status: "Active", lastActive: "2 mins ago" },
-  { id: 2, name: "Siti Aminah", email: "siti@hotel.com", role: "Receptionist", status: "Active", lastActive: "1 hour ago" },
-  { id: 3, name: "Andi Wijaya", email: "andi@hotel.com", role: "Finance Officer", status: "Inactive", lastActive: "2 days ago" },
-];
+import { getPartnerStaff, addPartnerStaff, removePartnerStaff, PartnerStaff } from "@/lib/api";
 
 export default function StaffPage() {
   const { partnerType } = usePartner();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [staffList, setStaffList] = useState(mockStaff);
+  const [staffList, setStaffList] = useState<PartnerStaff[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const handleSaveStaff = (newStaff: any) => {
-    const formattedStaff = {
-      id: staffList.length + 1,
-      ...newStaff,
-      lastActive: "Just now"
-    };
-    setStaffList([formattedStaff, ...staffList]);
-    setIsAddModalOpen(false);
+  const fetchStaff = async () => {
+    setLoading(true);
+    try {
+      const res = await getPartnerStaff();
+      setStaffList(res.data);
+    } catch (error) {
+      console.error("Failed to fetch staff", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchStaff();
+  }, []);
+
+  const handleSaveStaff = async (newStaff: any) => {
+    try {
+      await addPartnerStaff(newStaff.email, newStaff.role);
+      setIsAddModalOpen(false);
+      fetchStaff();
+    } catch (error: any) {
+      alert(error.message || "Failed to add staff");
+    }
+  };
+
+  const handleRemoveStaff = async (id: number) => {
+    if (!confirm("Are you sure you want to remove this staff member?")) return;
+    try {
+      await removePartnerStaff(id);
+      fetchStaff();
+    } catch (error) {
+      alert("Failed to remove staff");
+    }
+  };
+
+  const filteredStaff = staffList.filter(s => 
+    s.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -59,17 +87,41 @@ export default function StaffPage() {
           <input 
             type="text" 
             placeholder="Search staff by name or email..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
           />
         </div>
       </div>
 
       {/* Staff Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {staffList.map((staff) => (
-          <StaffCard key={staff.id} staff={staff} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredStaff.map((staff) => (
+            <StaffCard 
+              key={staff.ID} 
+              staff={{
+                id: staff.ID,
+                name: staff.user.name,
+                email: staff.user.email,
+                role: staff.role,
+                status: "Active", // Mock status for UI
+                lastActive: "Recent"
+              }} 
+              onDelete={() => handleRemoveStaff(staff.ID)}
+            />
+          ))}
+          {filteredStaff.length === 0 && (
+            <div className="col-span-full py-12 text-center text-gray-500 dark:text-slate-400 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700">
+              No staff members found.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

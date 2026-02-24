@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Plus, X, Loader2 } from "lucide-react";
 import BlockDateModal from "@/components/partner/dashboard/BlockDateModal";
+import { getPartnerAvailability, blockDates, Availability } from "@/lib/api";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -11,37 +12,10 @@ type DayStatus = "available" | "booked" | "blocked" | "pending";
 
 interface CalendarDay {
   date: number;
+  fullDate: string; // YYYY-MM-DD
   status: DayStatus;
   price?: string;
   guest?: string;
-}
-
-// Mock data generator
-function generateMockDays(year: number, month: number): CalendarDay[] {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const days: CalendarDay[] = [];
-  const bookedRanges = [
-    { start: 3, end: 5, guest: "Ahmad R." },
-    { start: 10, end: 12, guest: "Budi P." },
-    { start: 16, end: 18, guest: "Siti N." },
-    { start: 22, end: 25, guest: "Reza A." },
-  ];
-  const blockedDays = [8, 9, 28, 29];
-  const pendingDays = [14, 15];
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const booked = bookedRanges.find((r) => d >= r.start && d <= r.end);
-    if (booked) {
-      days.push({ date: d, status: "booked", guest: booked.guest, price: "Rp 850.000" });
-    } else if (blockedDays.includes(d)) {
-      days.push({ date: d, status: "blocked" });
-    } else if (pendingDays.includes(d)) {
-      days.push({ date: d, status: "pending", guest: "Dewi L.", price: "Rp 850.000" });
-    } else {
-      days.push({ date: d, status: "available", price: "Rp 850.000" });
-    }
-  }
-  return days;
 }
 
 const statusColors: Record<DayStatus, { bg: string; border: string; text: string; darkBg: string; darkBorder: string; darkText: string }> = {
@@ -51,27 +25,165 @@ const statusColors: Record<DayStatus, { bg: string; border: string; text: string
   pending: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", darkBg: "dark:bg-amber-500/10", darkBorder: "dark:border-amber-500/20", darkText: "dark:text-amber-400" },
 };
 
-const rooms = ["All Rooms", "Deluxe Room", "Suite Room", "Family Room", "Standard Room"];
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 1)); // Feb 2026
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedRoom, setSelectedRoom] = useState("All Rooms");
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [apiData, setApiData] = useState<{ 
+    availability: Availability[]; 
+    bookings: any[]; 
+    rooms?: any[]; 
+    flights?: any[];
+  }>({ availability: [], bookings: [] });
 
-  const handleBlockDates = (data: any) => {
-    console.log("Blocking Dates:", data);
-    setIsBlockModalOpen(false);
-    // Add logic to update calendar state
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await getPartnerAvailability();
+      setApiData(res || { availability: [], bookings: [] });
+    } catch (error) {
+      console.error("Failed to fetch availability", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleBlockDates = async (data: any) => {
+    try {
+      const listingId = selectedRoom !== "All Rooms" ? parseInt(selectedRoom) : undefined;
+      const isHotel = apiData.rooms && apiData.rooms.length > 0;
+      
+      await blockDates(
+        data.startDate, 
+        data.endDate, 
+        "block", 
+        undefined, 
+        isHotel ? listingId : undefined,
+        !isHotel ? listingId : undefined
+      );
+      setIsBlockModalOpen(false);
+      fetchData();
+    } catch (error) {
+      alert("Failed to block dates");
+    }
+  };
+
+  const handleEditRate = async () => {
+    if (!selectedDay) return;
+    
+    const selectedListing = selectedRoom !== "All Rooms" 
+      ? (apiData.rooms?.find(r => r.ID.toString() === selectedRoom) || 
+         apiData.flights?.find(f => f.ID.toString() === selectedRoom))
+      : (apiData.rooms?.[0] || apiData.flights?.[0]);
+    
+    const basePrice = selectedListing?.base_price || 0;
+    const currentPrice = selectedDay.price ? parseInt(selectedDay.price.replace(/[^0-9]/g, "")) : basePrice;
+    const newPriceValue = window.prompt("Enter new rate (e.g. 1500000 for Rp 1.500.000):", currentPrice.toString());
+    
+    if (newPriceValue && !isNaN(parseInt(newPriceValue))) {
+      try {
+        const listingId = selectedRoom !== "All Rooms" ? parseInt(selectedRoom) : undefined;
+        const isHotel = apiData.rooms && apiData.rooms.length > 0;
+
+        await blockDates(
+            selectedDay.fullDate, 
+            selectedDay.fullDate, 
+            "price", 
+            parseInt(newPriceValue),
+            isHotel ? listingId : undefined,
+            !isHotel ? listingId : undefined
+        );
+        fetchData();
+        // Update selected day price immediately for UI feedback
+        setSelectedDay({
+          ...selectedDay,
+          price: `Rp ${parseInt(newPriceValue).toLocaleString()}`
+        });
+      } catch (error) {
+        alert("Failed to update rate");
+      }
+    }
+  };
+
+  const dayToIso = (d: number) => {
+     const monthStr = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+     const dayStr = d.toString().padStart(2, '0');
+     return `${currentDate.getFullYear()}-${monthStr}-${dayStr}`;
   };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const days = generateMockDays(year, month);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfWeek = new Date(year, month, 1).getDay();
+
+  const days: CalendarDay[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isoDate = dayToIso(d);
+    
+    const listingId = selectedRoom !== "All Rooms" ? parseInt(selectedRoom) : undefined;
+    const isHotel = apiData.rooms && apiData.rooms.length > 0;
+
+    // Find in API availability
+    const avail = apiData?.availability?.find(a => {
+        const matchDate = a.date.startsWith(isoDate);
+        if (!matchDate) return false;
+        if (listingId) {
+            return isHotel ? a.room_type_id === listingId : a.flight_id === listingId;
+        }
+        return true;
+    });
+
+    // Find in API bookings
+    const booking = apiData?.bookings?.find(b => {
+        const matchDate = b.check_in.startsWith(isoDate) || (isoDate > b.check_in && isoDate < b.check_out);
+        if (!matchDate) return false;
+        // Bookings can be filtered by listing if we have room/flight info in them
+        // For now we assume if it's the partner's booking, we show it, but we could refine.
+        return true;
+    });
+
+    let status: DayStatus = "available";
+    if (avail) status = avail.status;
+    if (booking) status = "booked";
+
+    // Get base price for the selected room/listing
+    const selectedListing = selectedRoom !== "All Rooms" 
+      ? (apiData.rooms?.find(r => r.ID.toString() === selectedRoom) || 
+         apiData.flights?.find(f => f.ID.toString() === selectedRoom))
+      : (apiData.rooms?.[0] || apiData.flights?.[0]);
+    
+    const basePrice = selectedListing?.base_price || 0;
+
+    days.push({ 
+      date: d, 
+      fullDate: isoDate,
+      status, 
+      guest: booking?.user?.name || booking?.guest_name,
+      price: avail?.price 
+        ? `Rp ${avail.price.toLocaleString("id-ID")}` 
+        : basePrice 
+          ? `Rp ${basePrice.toLocaleString("id-ID")}` 
+          : "Rp 0"
+    });
+  }
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1));
+
+  if (loading && (!apiData?.availability || apiData.availability.length === 0)) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -116,8 +228,12 @@ export default function CalendarPage() {
               onChange={(e) => setSelectedRoom(e.target.value)}
               className="text-sm bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-xl px-3 py-2 text-gray-700 dark:text-slate-200 outline-none focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
             >
-              {rooms.map((r) => (
-                <option key={r} value={r}>{r}</option>
+              <option value="All Rooms">All Listings</option>
+              {apiData.rooms?.map((r: any) => (
+                <option key={r.ID} value={r.ID.toString()}>{r.name}</option>
+              ))}
+              {apiData.flights?.map((f: any) => (
+                <option key={f.ID} value={f.ID.toString()}>{f.airline} - {f.flight_number}</option>
               ))}
             </select>
           </div>
@@ -209,16 +325,31 @@ export default function CalendarPage() {
                 )}
                 <div className="pt-2 space-y-2">
                   {selectedDay.status === "available" && (
-                    <button className="w-full bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium py-2 rounded-xl transition-colors">
+                    <button 
+                      onClick={async () => {
+                         await blockDates(selectedDay.fullDate, selectedDay.fullDate, "block");
+                         fetchData();
+                      }}
+                      className="w-full bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium py-2 rounded-xl transition-colors"
+                    >
                       Block This Date
                     </button>
                   )}
                   {selectedDay.status === "blocked" && (
-                    <button className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-medium py-2 rounded-xl transition-colors">
+                    <button 
+                      onClick={async () => {
+                        await blockDates(selectedDay.fullDate, selectedDay.fullDate, "unblock");
+                        fetchData();
+                      }}
+                      className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-medium py-2 rounded-xl transition-colors"
+                    >
                       Unblock Date
                     </button>
                   )}
-                  <button className="w-full bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 text-sm font-medium py-2 rounded-xl transition-colors">
+                  <button 
+                    onClick={handleEditRate}
+                    className="w-full bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 text-sm font-medium py-2 rounded-xl transition-colors"
+                  >
                     Edit Rate
                   </button>
                 </div>
@@ -233,11 +364,11 @@ export default function CalendarPage() {
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Month Summary</h3>
             <div className="space-y-3">
               {[
-                { label: "Available", value: "15 days", color: "text-emerald-600 dark:text-emerald-400" },
-                { label: "Booked", value: "10 days", color: "text-blue-600 dark:text-blue-400" },
-                { label: "Pending", value: "2 days", color: "text-amber-600 dark:text-amber-400" },
-                { label: "Blocked", value: "4 days", color: "text-gray-500 dark:text-slate-400" },
-                { label: "Occupancy", value: "67%", color: "text-primary dark:text-primary" },
+                { label: "Available", value: `${days.filter(d => d.status === 'available').length} days`, color: "text-emerald-600 dark:text-emerald-400" },
+                { label: "Booked", value: `${days.filter(d => d.status === 'booked').length} days`, color: "text-blue-600 dark:text-blue-400" },
+                { label: "Pending", value: `${days.filter(d => d.status === 'pending').length} days`, color: "text-amber-600 dark:text-amber-400" },
+                { label: "Blocked", value: `${days.filter(d => d.status === 'blocked').length} days`, color: "text-gray-500 dark:text-slate-400" },
+                { label: "Occupancy", value: `${Math.round((days.filter(d => d.status === 'booked').length / daysInMonth) * 100)}%`, color: "text-primary dark:text-primary" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <span className="text-sm text-gray-500 dark:text-slate-400">{item.label}</span>

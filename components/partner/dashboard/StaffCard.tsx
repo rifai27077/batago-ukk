@@ -14,9 +14,10 @@ interface Staff {
 
 interface StaffCardProps {
   staff: Staff;
+  onDelete?: () => void;
 }
 
-export default function StaffCard({ staff }: StaffCardProps) {
+export default function StaffCard({ staff, onDelete }: StaffCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +44,7 @@ export default function StaffCard({ staff }: StaffCardProps) {
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
-            <MoreVertical className="w-4 h-4" /> {/* Changed to MoreVertical to match Listings */}
+            <MoreVertical className="w-4 h-4" />
           </button>
           
           {menuOpen && (
@@ -55,9 +56,17 @@ export default function StaffCard({ staff }: StaffCardProps) {
                 <Pencil className="w-4 h-4" /> Edit
               </button>
               <div className="h-px bg-gray-100 dark:bg-slate-600 my-1"></div>
-              <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors">
-                <Trash2 className="w-4 h-4" /> Remove
-              </button>
+              {onDelete && (
+                <button 
+                  onClick={() => {
+                    onDelete();
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" /> Remove
+                </button>
+              )}
             </div>
           )}
         </div>

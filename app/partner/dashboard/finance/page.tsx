@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Wallet, ArrowUpRight, ArrowDownRight, Clock, Download, Building, CreditCard, TrendingUp, Banknote, Plane } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -13,15 +13,9 @@ import {
 } from "recharts";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
+import { getPartnerFinance } from "@/lib/api";
 
-const revenueData = [
-  { month: "Sep", gross: 22500000, commission: 2250000, net: 20250000 },
-  { month: "Oct", gross: 28300000, commission: 2830000, net: 25470000 },
-  { month: "Nov", gross: 24800000, commission: 2480000, net: 22320000 },
-  { month: "Dec", gross: 38200000, commission: 3820000, net: 34380000 },
-  { month: "Jan", gross: 33400000, commission: 3340000, net: 30060000 },
-  { month: "Feb", gross: 41600000, commission: 4160000, net: 37440000 },
-];
+
 
 interface Transaction {
   id: string;
@@ -34,25 +28,7 @@ interface Transaction {
   type: "earning" | "payout" | "refund";
 }
 
-const hotelTransactions: Transaction[] = [
-  { id: "1", date: "16 Feb 2026", description: "Deluxe Room — Ahmad Rifai", bookingId: "BG-240216-001", gross: "Rp 1.700.000", commission: "-Rp 170.000", net: "Rp 1.530.000", type: "earning" },
-  { id: "2", date: "15 Feb 2026", description: "Suite Room — Budi Pratama", bookingId: "BG-240216-002", gross: "Rp 4.500.000", commission: "-Rp 450.000", net: "Rp 4.050.000", type: "earning" },
-  { id: "3", date: "14 Feb 2026", description: "Weekly Payout — BCA ****7890", bookingId: "-", gross: "-", commission: "-", net: "-Rp 28.500.000", type: "payout" },
-  { id: "4", date: "13 Feb 2026", description: "Family Room — Siti Nurhaliza", bookingId: "BG-240215-003", gross: "Rp 4.400.000", commission: "-Rp 440.000", net: "Rp 3.960.000", type: "earning" },
-  { id: "5", date: "12 Feb 2026", description: "Refund — Dewi Lestari", bookingId: "BG-240214-005", gross: "-", commission: "-", net: "-Rp 850.000", type: "refund" },
-  { id: "6", date: "11 Feb 2026", description: "Standard Room — Reza Arap", bookingId: "BG-240215-004", gross: "Rp 650.000", commission: "-Rp 65.000", net: "Rp 585.000", type: "earning" },
-  { id: "7", date: "10 Feb 2026", description: "Suite Room — Tono Sucipto", bookingId: "BG-240213-006", gross: "Rp 6.750.000", commission: "-Rp 675.000", net: "Rp 6.075.000", type: "earning" },
-];
 
-const airlineTransactions: Transaction[] = [
-  { id: "1", date: "16 Feb 2026", description: "Ticket Sale (3 Pax) — CGK-DPS", bookingId: "PNR-AX789", gross: "Rp 4.500.000", commission: "-Rp 450.000", net: "Rp 4.050.000", type: "earning" },
-  { id: "2", date: "15 Feb 2026", description: "Baggage Add-on — Budi P.", bookingId: "PNR-OY221", gross: "Rp 350.000", commission: "-Rp 35.000", net: "Rp 315.000", type: "earning" },
-  { id: "3", date: "14 Feb 2026", description: "Weekly Payout — BCA ****7890", bookingId: "-", gross: "-", commission: "-", net: "-Rp 85.000.000", type: "payout" },
-  { id: "4", date: "13 Feb 2026", description: "Ticket Sale (1 Pax) — SUB-KUL", bookingId: "PNR-ZZ112", gross: "Rp 1.200.000", commission: "-Rp 120.000", net: "Rp 1.080.000", type: "earning" },
-  { id: "5", date: "12 Feb 2026", description: "Refund — Ticket Loss", bookingId: "PNR-KL998", gross: "-", commission: "-", net: "-Rp 1.200.000", type: "refund" },
-  { id: "6", date: "11 Feb 2026", description: "Cargo Shipment — Log-001", bookingId: "AWB-88212", gross: "Rp 8.500.000", commission: "-Rp 850.000", net: "Rp 7.650.000", type: "earning" },
-  { id: "7", date: "10 Feb 2026", description: "In-flight Meal Pre-order", bookingId: "PNR-QQ334", gross: "Rp 150.000", commission: "-Rp 15.000", net: "Rp 135.000", type: "earning" },
-];
 
 const formatCurrency = (v: number) => {
   if (v >= 1000000) return `${(v / 1000000).toFixed(1)}jt`;
@@ -66,11 +42,56 @@ export default function FinancePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
-  const transactions = partnerType === "hotel" ? hotelTransactions : airlineTransactions;
-  const balance = partnerType === "hotel" ? "Rp 8.7M" : "Rp 142.5M";
-  const pending = partnerType === "hotel" ? "Rp 5.6M" : "Rp 45.2M";
-  const totalEarned = partnerType === "hotel" ? "Rp 170.2M" : "Rp 2.45B";
-  const commission = partnerType === "hotel" ? "Rp 17.0M" : "Rp 245.0M";
+  // Finance State
+  const [balance, setBalance] = useState("Rp 0");
+  const [pending, setPending] = useState("Rp 0");
+  const [totalEarned, setTotalEarned] = useState("Rp 0");
+  const [commission, setCommission] = useState("Rp 0");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFinance() {
+      try {
+        const res = await getPartnerFinance({ page: 1, limit: 10 });
+        if (res.summary) {
+          const fmt = (v: number) => {
+            if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)}B`;
+            if (v >= 1_000_000) return `Rp ${(v / 1_000_000).toFixed(1)}M`;
+            return `Rp ${v.toLocaleString("id-ID")}`;
+          };
+          setBalance(fmt(res.summary.net_revenue));
+          setCommission(fmt(res.summary.commission));
+          setTotalEarned(fmt(res.summary.total_revenue));
+        }
+        if (res.transactions) {
+          const mapped: Transaction[] = res.transactions.map((t: any) => ({
+            id: String(t.ID),
+            date: new Date(t.CreatedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
+            description: t.description || (t.type === "earning" ? "Revenue" : "Payout"),
+            bookingId: t.booking?.booking_code || "-",
+            gross: `Rp ${t.gross_amount.toLocaleString("id-ID")}`,
+            commission: `-Rp ${t.commission_amount.toLocaleString("id-ID")}`,
+            net: `Rp ${t.net_amount.toLocaleString("id-ID")}`,
+            type: t.type,
+          }));
+          setTransactions(mapped);
+        }
+        // Mocking some revenue chart data based on total if unavailable
+        setRevenueData([
+          { month: "Current", net: res.summary?.net_revenue || 0, commission: res.summary?.commission || 0 }
+        ]);
+      } catch (err) {
+        console.error("Failed to fetch finance", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchFinance();
+  }, []);
+
+
 
   const totalPages = Math.ceil(transactions.length / itemsPerPage);
   const paginatedTransactions = useMemo(() => {
@@ -208,7 +229,7 @@ export default function FinancePage() {
           <div className="overflow-x-auto flex-1">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50/80 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+                <tr className="bg-gray-50/80 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 text-xs tracking-wider">
                   <th className="text-left px-5 py-3 font-semibold">Date</th>
                   <th className="text-left px-5 py-3 font-semibold">Description</th>
                   <th className="text-left px-5 py-3 font-semibold">Reference</th>

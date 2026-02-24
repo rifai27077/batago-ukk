@@ -1,29 +1,66 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Search, Plane, Wrench, BarChart, MoreHorizontal, Users, Gauge, Calendar } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Plus, Plane, Wrench, BarChart, Users, Calendar, Trash2, Loader2 } from "lucide-react";
 import AddAircraftModal from "@/components/partner/dashboard/AddAircraftModal";
-
-const mockFleet = [
-  { id: 1, registration: "PK-GIA", model: "Boeing 737-800", capacity: 189, yom: "2018", status: "active", nextMaintenance: "12 Mar 2026" },
-  { id: 2, registration: "PK-GIB", model: "Airbus A320", capacity: 180, yom: "2019", status: "active", nextMaintenance: "15 Apr 2026" },
-  { id: 3, registration: "PK-GIC", model: "ATR 72-600", capacity: 70, yom: "2020", status: "maintenance", nextMaintenance: "20 Feb 2026" },
-  { id: 4, registration: "PK-GID", model: "Boeing 777-300ER", capacity: 396, yom: "2017", status: "active", nextMaintenance: "01 Jun 2026" },
-];
+import { getPartnerFleet, createAircraft, deleteAircraft, PartnerAircraft } from "@/lib/api";
 
 export default function FleetPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [fleet, setFleet] = useState(mockFleet);
+  const [fleet, setFleet] = useState<PartnerAircraft[]>([]);
+  const [stats, setStats] = useState({ total: 0, maintenance: 0, utilization: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const handleSaveAircraft = (newAircraft: any) => {
-    const formattedAircraft = {
-      id: fleet.length + 1,
-      ...newAircraft,
-      nextMaintenance: "Pending Schedule"
-    };
-    setFleet([formattedAircraft, ...fleet]);
-    setIsAddModalOpen(false);
+  const fetchFleet = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getPartnerFleet();
+      setFleet(res.data || []);
+      setStats(res.stats || { total: 0, maintenance: 0, utilization: 0 });
+    } catch (err: any) {
+      setError(err.message || "Failed to load fleet data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchFleet(); }, [fetchFleet]);
+
+  const handleSaveAircraft = async (newAircraft: any) => {
+    try {
+      await createAircraft({
+        registration: newAircraft.registration,
+        model: newAircraft.model,
+        capacity: Number(newAircraft.capacity),
+        yom: newAircraft.yom || "",
+        status: newAircraft.status || "active",
+      });
+      setIsAddModalOpen(false);
+      fetchFleet();
+    } catch (err: any) {
+      alert(err.message || "Failed to add aircraft");
+    }
   };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this aircraft?")) return;
+    try {
+      await deleteAircraft(id);
+      fetchFleet();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete aircraft");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
+        <span className="ml-3 text-gray-500 dark:text-slate-400">Loading fleet data...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -48,6 +85,10 @@ export default function FleetPage() {
         onSave={handleSaveAircraft} 
       />
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm">{error}</div>
+      )}
+
        {/* Stats Cards */}
        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
@@ -57,7 +98,7 @@ export default function FleetPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Total Aircraft</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{fleet.length}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</h3>
             </div>
           </div>
         </div>
@@ -68,7 +109,7 @@ export default function FleetPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Maintenance</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{fleet.filter(f => f.status === 'maintenance').length}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.maintenance}</h3>
             </div>
           </div>
         </div>
@@ -79,13 +120,20 @@ export default function FleetPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Utilization</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">88%</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.utilization}%</h3>
             </div>
           </div>
         </div>
       </div>
 
       {/* Fleet List Grid */}
+      {fleet.length === 0 ? (
+        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700">
+          <Plane className="w-12 h-12 text-gray-300 dark:text-slate-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-600 dark:text-slate-400">No aircraft in fleet</h3>
+          <p className="text-sm text-gray-400 dark:text-slate-500 mt-1">Add your first aircraft to get started</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
          {fleet.map((plane) => (
             <div key={plane.id} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 hover:border-sky-500/30 transition-all group relative overflow-hidden">
@@ -115,20 +163,23 @@ export default function FleetPage() {
                         <Calendar className="w-3.5 h-3.5 text-gray-400" />
                         <span className="text-xs text-gray-500 dark:text-slate-400">YOM</span>
                      </div>
-                     <p className="font-bold text-gray-800 dark:text-slate-200">{plane.yom}</p>
+                     <p className="font-bold text-gray-800 dark:text-slate-200">{plane.yom || "—"}</p>
                   </div>
                    <div className="bg-gray-50 dark:bg-slate-900 rounded-xl p-3">
                       <div className="flex items-center gap-2 mb-1">
                         <Wrench className="w-3.5 h-3.5 text-gray-400" />
                         <span className="text-xs text-gray-500 dark:text-slate-400">Next Check</span>
                      </div>
-                     <p className="font-bold text-gray-800 dark:text-slate-200 text-xs mt-0.5">{plane.nextMaintenance}</p>
+                     <p className="font-bold text-gray-800 dark:text-slate-200 text-xs mt-0.5">{plane.next_maintenance ? new Date(plane.next_maintenance).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</p>
                   </div>
                </div>
 
                <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-2">
-                  <button className="text-sm font-semibold text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-                     View Log
+                  <button 
+                    onClick={() => handleDelete(plane.id)}
+                    className="text-sm font-semibold text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                  >
+                     <Trash2 className="w-4 h-4" />
                   </button>
                   <button className="text-sm font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 px-3 py-1.5 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors">
                      Manage
@@ -137,6 +188,7 @@ export default function FleetPage() {
             </div>
          ))}
       </div>
+      )}
     </div>
   );
 }

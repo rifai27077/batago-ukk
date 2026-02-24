@@ -20,7 +20,7 @@ export default function Home() {
       <CTACards />
       <Features />
       <Reviews />
-      <Newsletter />
+      {/* <Newsletter /> */}
       <PartnerBanner />
       <Footer />
     </main>

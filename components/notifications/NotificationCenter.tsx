@@ -1,55 +1,47 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, Check, Info, Tag } from "lucide-react";
+import { Bell, Check, Info, Tag, Loader2, LogOut } from "lucide-react";
 import Link from "next/link"; // Ensure Link is imported
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/api";
 
 interface Notification {
-  id: string;
+  id: number;
   type: "info" | "promo" | "success";
   title: string;
   message: string;
-  time: string;
+  created_at: string;
   read: boolean;
   link?: string;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    type: "success",
-    title: "Booking Confirmed",
-    message: "Your flight to Bali has been confirmed. Have a safe trip!",
-    time: "2 hours ago",
-    read: false,
-    link: "/my-bookings/B-12345",
-  },
-  {
-    id: "2",
-    type: "promo",
-    title: "50% Off Hotels!",
-    message: "Limited time offer for stays in Yogyakarta. Code: JOGJA50",
-    time: "1 day ago",
-    read: false,
-    link: "/stays",
-  },
-  {
-    id: "3",
-    type: "info",
-    title: "Check-in Reminder",
-    message: "Web check-in differs for your upcoming flight tomorrow.",
-    time: "2 days ago",
-    read: true,
-    link: "/my-bookings",
-  },
-];
-
 export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const fetchNotifications = async () => {
+    setIsLoading(true);
+    try {
+        const res = await getNotifications();
+        setNotifications(res.data || []);
+    } catch (err) {
+        console.error("Failed to fetch notifications", err);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Refresh every minute
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -61,8 +53,33 @@ export default function NotificationCenter() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
+  const handleMarkAllAsRead = async () => {
+    try {
+        await markAllNotificationsAsRead();
+        setNotifications(notifications.map((n) => ({ ...n, read: true })));
+    } catch (err) {
+        console.error(err);
+    }
+  };
+
+  const handleMarkAsRead = async (id: number) => {
+    try {
+        await markNotificationAsRead(id);
+        setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (err) {
+        console.error(err);
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diff < 60) return "Just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return date.toLocaleDateString();
   };
 
   const NotificationIcon = ({ type }: { type: Notification["type"] }) => {
@@ -95,10 +112,10 @@ export default function NotificationCenter() {
         }`}
       >
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/80 backdrop-blur-sm">
-          <h3 className="font-bold text-foreground">Notifications</h3>
+          <h2 className="font-bold text-foreground">Notifications</h2>
           {unreadCount > 0 && (
             <button
-              onClick={markAllAsRead}
+              onClick={handleMarkAllAsRead}
               className="text-xs font-semibold text-primary hover:text-primary-hover transition-colors"
             >
               Mark all as read
@@ -107,7 +124,11 @@ export default function NotificationCenter() {
         </div>
 
         <div className="max-h-[400px] overflow-y-auto">
-          {notifications.length > 0 ? (
+          {isLoading && notifications.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : notifications.length > 0 ? (
             <div className="divide-y divide-gray-50">
               {notifications.map((notification) => (
                 <div
@@ -115,21 +136,24 @@ export default function NotificationCenter() {
                   className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer relative ${
                     !notification.read ? "bg-blue-50/30" : ""
                   }`}
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => {
+                    if (!notification.read) handleMarkAsRead(notification.id);
+                    setIsOpen(false);
+                  }}
                 >
                   <Link href={notification.link || "#"} className="flex gap-4">
                     <div className="shrink-0 mt-1">
                       <NotificationIcon type={notification.type} />
                     </div>
                     <div>
-                      <h4 className={`text-sm ${!notification.read ? "font-bold text-foreground" : "font-medium text-gray-700"}`}>
+                      <h3 className={`text-sm ${!notification.read ? "font-bold text-foreground" : "font-medium text-gray-700"}`}>
                         {notification.title}
-                      </h4>
+                      </h3>
                       <p className="text-xs text-muted mt-1 leading-relaxed line-clamp-2">
                         {notification.message}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-2 font-medium">
-                        {notification.time}
+                        {formatTime(notification.created_at)}
                       </p>
                     </div>
                     {!notification.read && (

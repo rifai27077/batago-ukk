@@ -28,12 +28,12 @@ const cards = [
 
 export default function CTACards() {
   return (
-    <section className="py-16 px-6 max-w-7xl mx-auto">
+    <section className="py-16 px-6 max-w-7xl mx-auto border-y border-gray-100">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {cards.map((card) => (
           <Link
             key={card.title}
-            href="#"
+            href={card.title === "Flights" ? "/flights" : "/stays"}
             className="relative h-[400px] md:h-[450px] rounded-3xl overflow-hidden group cursor-pointer shadow-xl hover:shadow-2xl transition-all duration-500 block"
           >
             {/* Background Image - Scale on hover */}

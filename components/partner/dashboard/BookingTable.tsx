@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Eye } from "lucide-react";
 import StatusBadge from "./StatusBadge";
@@ -17,13 +17,7 @@ interface Booking {
   amount: string;
 }
 
-const mockBookings: Booking[] = [
-  { id: "BG-240216-001", guest: "Ahmad Rifai", property: "Deluxe Room", date: "16-18 Feb 2026", status: "confirmed", amount: "Rp 1.700.000" },
-  { id: "BG-240216-002", guest: "Budi Pratama", property: "Suite Room", date: "17-20 Feb 2026", status: "pending", amount: "Rp 4.500.000" },
-  { id: "BG-240215-003", guest: "Siti Nurhaliza", property: "Family Room", date: "20-22 Feb 2026", status: "confirmed", amount: "Rp 4.400.000" },
-  { id: "BG-240215-004", guest: "Reza Arap", property: "Standard Room", date: "15-16 Feb 2026", status: "completed", amount: "Rp 650.000" },
-  { id: "BG-240214-005", guest: "Dewi Lestari", property: "Deluxe Room", date: "14-15 Feb 2026", status: "cancelled", amount: "Rp 850.000" },
-];
+import { getPartnerBookings } from "@/lib/api";
 
 interface BookingTableProps {
   bookings?: Booking[];
@@ -34,14 +28,47 @@ interface BookingTableProps {
 }
 
 export default function BookingTable({
-  bookings = mockBookings,
+  bookings: initialBookings,
   showViewAll = true,
   compact = false,
   itemsPerPage: initialItemsPerPage = 5,
   showPagination = false,
 }: BookingTableProps) {
+  const [bookings, setBookings] = useState<Booking[]>(initialBookings || []);
+  const [isLoading, setIsLoading] = useState(!initialBookings);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
+
+  useEffect(() => {
+    if (initialBookings) {
+      setBookings(initialBookings);
+      setIsLoading(false);
+      return;
+    }
+
+    async function fetchBookings() {
+      try {
+        const res = await getPartnerBookings({ page: 1, limit: 10 });
+        if (res.data) {
+          const mapped: Booking[] = res.data.map((b: any) => ({
+            id: b.booking_code,
+            guest: b.user?.name || "Guest",
+            property: b.type === "hotel" ? "Room" : "Flight",
+            date: new Date(b.CreatedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short" }),
+            status: b.booking_status.toLowerCase() as StatusType,
+            amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
+          }));
+          setBookings(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch bookings for table", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchBookings();
+  }, [initialBookings]);
 
   const totalPages = Math.ceil(bookings.length / itemsPerPage);
   const paginatedBookings = useMemo(() => {
@@ -76,7 +103,12 @@ export default function BookingTable({
         )}
       </div>
 
-      {paginatedBookings.length === 0 ? (
+      {isLoading ? (
+        <div className="p-10 flex flex-col items-center justify-center space-y-3">
+          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">Loading bookings...</p>
+        </div>
+      ) : paginatedBookings.length === 0 ? (
         <EmptyState
           variant="booking"
           title="Belum ada booking"
@@ -89,7 +121,7 @@ export default function BookingTable({
       <div className="hidden md:block overflow-x-auto flex-1">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50/80 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+            <tr className="bg-gray-50/80 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400 text-xs tracking-wider">
               <th className="text-left px-5 py-3 font-semibold">Booking ID</th>
               <th className="text-left px-5 py-3 font-semibold">Guest</th>
               <th className="text-left px-5 py-3 font-semibold">Room</th>
@@ -135,7 +167,7 @@ export default function BookingTable({
               <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{booking.property} · {booking.date}</p>
               <p className="text-[11px] text-gray-400 dark:text-slate-500 font-mono mt-0.5">#{booking.id}</p>
             </div>
-            <div className="text-right ml-4 flex-shrink-0">
+            <div className="text-right ml-4 shrink-0">
               <p className="font-semibold text-sm text-gray-800 dark:text-slate-200">{booking.amount}</p>
               <StatusBadge status={booking.status} className="mt-1" />
             </div>

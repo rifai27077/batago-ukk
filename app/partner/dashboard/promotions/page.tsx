@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Tag, Plus, Info, Search, Filter, Calendar, TrendingUp, Users, CheckCircle2, Clock, AlertCircle, MoreVertical, Edit2, Pause, Trash2, Building2, BarChart3, Plane, Ticket } from "lucide-react";
 import PromotionForm from "@/components/partner/dashboard/PromotionForm";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
+import { getPartnerPromotions, createPartnerPromotion, deletePartnerPromotion } from "@/lib/api";
 import {
   ResponsiveContainer,
   BarChart,
@@ -22,112 +23,10 @@ interface Promotion {
   status: "active" | "scheduled" | "paused" | "expired";
   startDate: string;
   endDate: string;
-  listings: number; // Hotels: Rooms/Properties, Airlines: Routes
+  listings: number[]; // Hotels: Rooms/Properties, Airlines: Routes
   claims: number;
   revenue: string;
 }
-
-const mockHotelPromotions: Promotion[] = [
-  {
-    id: "1",
-    name: "Summer Flash Sale",
-    type: "flash_sale",
-    discount: 25,
-    status: "active",
-    startDate: "15 Feb 2026",
-    endDate: "20 Feb 2026",
-    listings: 3,
-    claims: 42,
-    revenue: "Rp 12.550.000",
-  },
-  {
-    id: "2",
-    name: "Last Minute Weekend",
-    type: "last_minute",
-    discount: 15,
-    status: "active",
-    startDate: "14 Feb 2026",
-    endDate: "17 Feb 2026",
-    listings: 1,
-    claims: 12,
-    revenue: "Rp 4.200.000",
-  },
-  {
-    id: "3",
-    name: "Ramadhan Holy Spirit",
-    type: "seasonal",
-    discount: 20,
-    status: "scheduled",
-    startDate: "01 Mar 2026",
-    endDate: "31 Mar 2026",
-    listings: 5,
-    claims: 0,
-    revenue: "Rp 0",
-  },
-  {
-    id: "4",
-    name: "Early Bird 2026",
-    type: "early_bird",
-    discount: 30,
-    status: "paused",
-    startDate: "01 Jan 2026",
-    endDate: "31 Dec 2026",
-    listings: 10,
-    claims: 156,
-    revenue: "Rp 85.400.000",
-  },
-];
-
-const mockAirlinePromotions: Promotion[] = [
-  {
-    id: "a1",
-    name: "Lebaran Homecoming Deal",
-    type: "seasonal",
-    discount: 15,
-    status: "scheduled",
-    startDate: "01 Apr 2026",
-    endDate: "15 Apr 2026",
-    listings: 12, // Routes
-    claims: 0,
-    revenue: "Rp 0",
-  },
-  {
-    id: "a2",
-    name: "Jakarta - Bali Flash Sale",
-    type: "flash_sale",
-    discount: 30,
-    status: "active",
-    startDate: "10 Feb 2026",
-    endDate: "12 Feb 2026",
-    listings: 4,
-    claims: 150,
-    revenue: "Rp 145.000.000",
-  },
-  {
-    id: "a3",
-    name: "Business Class Upgrade",
-    type: "last_minute",
-    discount: 20,
-    status: "active",
-    startDate: "01 Feb 2026",
-    endDate: "28 Feb 2026",
-    listings: 8,
-    claims: 45,
-    revenue: "Rp 56.000.000",
-  },
-  {
-    id: "a4",
-    name: "Early Bird Holiday 2026",
-    type: "early_bird",
-    discount: 25,
-    status: "paused",
-    startDate: "01 Jan 2026",
-    endDate: "31 Dec 2026",
-    listings: 20,
-    claims: 80,
-    revenue: "Rp 75.500.000",
-  },
-];
 
 const typeLabels: Record<Promotion["type"], { label: string; color: string }> = {
   flash_sale: { label: "Flash Sale", color: "bg-red-500" },
@@ -164,35 +63,63 @@ const statusConfig: Record<
   },
 };
 
-const hotelChartData = [
-  { name: "Flash Sale", value: 420 },
-  { name: "Last Minute", value: 310 },
-  { name: "Early Bird", value: 540 },
-  { name: "Seasonal", value: 280 },
-];
-
-const airlineChartData = [
-  { name: "Flash Sale", value: 850 },
-  { name: "Last Minute", value: 420 },
-  { name: "Early Bird", value: 680 },
-  { name: "Seasonal", value: 950 },
-];
-
 export default function PromotionsPage() {
   const { partnerType } = usePartner();
-  const [promotions, setPromotions] = useState<Promotion[]>(
-    partnerType === "hotel" ? mockHotelPromotions : mockAirlinePromotions
-  );
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | Promotion["status"]>(
     "all"
   );
-  
-  // Update state when partner type changes (in a real app this would be a useEffect fetching data)
-  const currentPromotions = useMemo(() => {
-     return partnerType === "hotel" ? mockHotelPromotions : mockAirlinePromotions;
-  }, [partnerType]);
+  const [stats, setStats] = useState({
+    total_active: 0,
+    total_claims: 0,
+    total_revenue: 0,
+  });
+
+  useEffect(() => {
+    async function fetchPromos() {
+      try {
+        const res = await getPartnerPromotions({ page: 1, limit: 100 });
+        if (res.data && res.data.length > 0) {
+          const mapped: Promotion[] = res.data.map((p) => ({
+            id: String(p.ID),
+            name: p.name,
+            type: p.type,
+            discount: p.discount,
+            status: p.status,
+            startDate: new Date(p.start_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
+            endDate: new Date(p.end_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
+            listings: p.listings,
+            claims: p.claims,
+            revenue: `Rp ${(p.revenue || 0).toLocaleString("id-ID")}`,
+          }));
+          setPromotions(mapped);
+        }
+        if (res.meta.stats) {
+          setStats(res.meta.stats);
+        }
+      } catch (err) {
+        console.error("Failed to fetch promotions", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchPromos();
+  }, []);
+
+  // Compute chart data from actual promotions
+  const chartData = useMemo(() => {
+    const counts: Record<string, number> = { "Flash Sale": 0, "Last Minute": 0, "Early Bird": 0, "Seasonal": 0 };
+    promotions.forEach(p => {
+      const label = typeLabels[p.type]?.label || p.type;
+      counts[label] = (counts[label] || 0) + (p.claims || 0);
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [promotions]);
+
+  const currentPromotions = promotions;
 
   const filteredPromotions = currentPromotions.filter((promo) => {
     const matchesSearch = promo.name
@@ -203,7 +130,7 @@ export default function PromotionsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const chartData = partnerType === "hotel" ? hotelChartData : airlineChartData;
+
 
   return (
     <div className="space-y-5">
@@ -231,7 +158,7 @@ export default function PromotionsPage() {
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Total Active</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">8</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total_active}</h3>
             </div>
             <div className="p-2 bg-green-50 dark:bg-green-500/10 rounded-lg">
               <Tag className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -248,7 +175,7 @@ export default function PromotionsPage() {
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Claims</p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                 {partnerType === "hotel" ? "210" : "425"}
+                 {stats.total_claims}
               </h3>
             </div>
             <div className="p-2 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
@@ -266,7 +193,7 @@ export default function PromotionsPage() {
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Revenue Generated</p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                 {partnerType === "hotel" ? "Rp 15.2jt" : "Rp 276.5jt"}
+                 Rp {stats.total_revenue.toLocaleString("id-ID")}
               </h3>
             </div>
             <div className="p-2 bg-amber-50 dark:bg-amber-500/10 rounded-lg">
@@ -323,12 +250,12 @@ export default function PromotionsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Promotion Name</th>
-                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Duration</th>
-                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Performance</th>
-                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 tracking-wider">Promotion Name</th>
+                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 tracking-wider">Type</th>
+                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 tracking-wider hidden sm:table-cell">Duration</th>
+                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 tracking-wider hidden md:table-cell">Performance</th>
+                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 tracking-wider">Status</th>
+                  <th className="py-4 px-5 text-xs font-semibold text-gray-500 tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -360,7 +287,7 @@ export default function PromotionsPage() {
                         <div className="flex items-center gap-2 text-[10px] text-gray-500">
                            <span className="flex items-center gap-1">
                               {partnerType === 'hotel' ? <Building2 className="w-3 h-3" /> : <Plane className="w-3 h-3" />}
-                              {promo.listings} {partnerType === 'hotel' ? 'Listings' : 'Routes'}
+                              {promo.listings?.length || 0} {partnerType === 'hotel' ? 'Listings' : 'Routes'}
                            </span>
                            <span>•</span>
                            <span>{promo.claims} claims</span>
@@ -409,7 +336,7 @@ export default function PromotionsPage() {
            
            <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Top Performing</h4>
            <div className="space-y-3">
-              {(partnerType === 'hotel' ? mockHotelPromotions : mockAirlinePromotions).slice(0, 3).map((promo, i) => (
+              {promotions.slice(0, 3).map((promo: Promotion, i: number) => (
                  <div key={promo.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-700">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : 'bg-orange-400'}`}>
                        {i + 1}
@@ -428,8 +355,36 @@ export default function PromotionsPage() {
       <PromotionForm 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onSave={(data) => {
-          console.log("Promotion saved:", data);
+        onSave={async (data) => {
+          try {
+            await createPartnerPromotion({
+              name: data.name || "New Promotion",
+              type: data.type || "flash_sale",
+              discount: data.discount || 10,
+              start_date: data.startDate || new Date().toISOString().split("T")[0],
+              end_date: data.endDate || new Date().toISOString().split("T")[0],
+              listings: data.listings.map(Number),
+            });
+            // Refetch
+            const res = await getPartnerPromotions({ page: 1, limit: 100 });
+            if (res.data && res.data.length > 0) {
+              const mapped: Promotion[] = res.data.map((p) => ({
+                id: String(p.ID),
+                name: p.name,
+                type: p.type,
+                discount: p.discount,
+                status: p.status,
+                startDate: new Date(p.start_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
+                endDate: new Date(p.end_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }),
+                listings: p.listings,
+                claims: p.claims,
+                revenue: `Rp ${(p.revenue || 0).toLocaleString("id-ID")}`,
+              }));
+              setPromotions(mapped);
+            }
+          } catch (err) {
+            console.error("Failed to create promotion", err);
+          }
           setIsModalOpen(false);
         }}
       />

@@ -15,6 +15,19 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "www.vectorlogo.zone",
       },
+      {
+        protocol: "https",
+        hostname: "api.dicebear.com",
+      },
+      {
+        protocol: "https",
+        hostname: "img.freepik.com",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "8080",
+      }
     ],
   },
 };

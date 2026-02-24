@@ -1,0 +1,17 @@
+-- 001_create_users.up.sql
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'USER',
+    phone VARCHAR(20),
+    avatar_url VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);

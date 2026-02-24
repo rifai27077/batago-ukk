@@ -1,37 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Plus, Search, Map, Calendar, ArrowRight, Clock, MoreVertical, Plane } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Plus, Search, Map, Calendar, ArrowRight, Loader2 } from "lucide-react";
 import AddRouteModal from "@/components/partner/dashboard/AddRouteModal";
 import RouteCard from "@/components/partner/dashboard/RouteCard";
-
-const mockRoutes = [
-  { id: 1, origin: "CGK", destination: "DPS", flightNumber: "GA-402", duration: "1h 50m", aircraft: "Boeing 737-800", schedule: ["Mon", "Wed", "Fri", "Sun"], status: "active" },
-  { id: 2, origin: "CGK", destination: "SIN", flightNumber: "GA-824", duration: "1h 45m", aircraft: "Airbus A330", schedule: ["Tue", "Thu", "Sat"], status: "active" },
-  { id: 3, origin: "SUB", destination: "KUL", flightNumber: "QZ-321", duration: "2h 30m", aircraft: "Airbus A320", schedule: ["Daily"], status: "paused" },
-  { id: 4, origin: "DPS", destination: "SYD", flightNumber: "GA-710", duration: "6h 15m", aircraft: "Boeing 777-300", schedule: ["Mon", "Sat"], status: "active" },
-];
+import { getPartnerRoutes, createPartnerRoute, deletePartnerRoute, PartnerRoute } from "@/lib/api";
 
 export default function RoutesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [routes, setRoutes] = useState(mockRoutes);
+  const [routes, setRoutes] = useState<PartnerRoute[]>([]);
+  const [stats, setStats] = useState({ active_routes: 0, daily_flights: 0, on_time_performance: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [region, setRegion] = useState("");
 
-  // Handle saving new route from modal
-  const handleSaveRoute = (newRoute: any) => {
-    const formattedRoute = {
-      id: routes.length + 1,
-      origin: newRoute.origin,
-      destination: newRoute.destination,
-      flightNumber: newRoute.flightNumber,
-      duration: newRoute.duration,
-      aircraft: newRoute.aircraft || "Assigned by Ops",
-      schedule: newRoute.schedule,
-      status: "active",
-    };
-    setRoutes([formattedRoute, ...routes]);
-    setIsAddModalOpen(false);
+  const fetchRoutes = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getPartnerRoutes(search || undefined, region || undefined);
+      setRoutes(res.data || []);
+      setStats(res.stats || { active_routes: 0, daily_flights: 0, on_time_performance: 0 });
+    } catch (err: any) {
+      setError(err.message || "Failed to load routes");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, region]);
+
+  useEffect(() => { fetchRoutes(); }, [fetchRoutes]);
+
+  const handleSaveRoute = async (newRoute: any) => {
+    try {
+      await createPartnerRoute({
+        origin: newRoute.origin,
+        destination: newRoute.destination,
+        flight_number: newRoute.flightNumber,
+        duration: newRoute.duration,
+        aircraft: newRoute.aircraft,
+        base_price: Number(newRoute.basePrice) || 0,
+      });
+      setIsAddModalOpen(false);
+      fetchRoutes();
+    } catch (err: any) {
+      alert(err.message || "Failed to create route");
+    }
   };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this route?")) return;
+    try {
+      await deletePartnerRoute(id);
+      fetchRoutes();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete route");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
+        <span className="ml-3 text-gray-500 dark:text-slate-400">Loading routes...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -56,6 +89,10 @@ export default function RoutesPage() {
         onSave={handleSaveRoute} 
       />
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm">{error}</div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
@@ -65,7 +102,7 @@ export default function RoutesPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Active Routes</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{routes.length}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.active_routes}</h3>
             </div>
           </div>
         </div>
@@ -76,7 +113,7 @@ export default function RoutesPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Daily Flights</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">142</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.daily_flights}</h3>
             </div>
           </div>
         </div>
@@ -87,7 +124,7 @@ export default function RoutesPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">On-Time Performance</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">98.2%</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.on_time_performance}%</h3>
             </div>
           </div>
         </div>
@@ -99,15 +136,21 @@ export default function RoutesPage() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input 
             type="text" 
-            placeholder="Search by origin, destination, or flight code..." 
+            placeholder="Search by flight code..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
           />
         </div>
         <div className="flex gap-2">
-          <select className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none cursor-pointer">
-            <option>All Regions</option>
-            <option>Domestic</option>
-            <option>International</option>
+          <select 
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none cursor-pointer"
+          >
+            <option value="">All Regions</option>
+            <option value="domestic">Domestic</option>
+            <option value="international">International</option>
           </select>
         </div>
       </div>
@@ -115,7 +158,7 @@ export default function RoutesPage() {
       {/* Routes List */}
       <div className="grid grid-cols-1 gap-4">
         {routes.map((route) => (
-           <RouteCard key={route.id} route={route} />
+           <RouteCard key={route.id} route={route} onDelete={() => handleDelete(route.id)} />
         ))}
 
         {routes.length === 0 && (
@@ -125,7 +168,7 @@ export default function RoutesPage() {
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">No Routes Found</h3>
             <p className="text-gray-500 dark:text-slate-400 max-w-sm mt-2">
-              You haven't added any flight routes yet. Start by adding your first origin and destination pair.
+              You haven&apos;t added any flight routes yet. Start by adding your first origin and destination pair.
             </p>
             <button 
               onClick={() => setIsAddModalOpen(true)}

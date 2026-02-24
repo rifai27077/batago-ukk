@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { logout } from "@/lib/api";
 import {
   LayoutDashboard,
   Building2,
@@ -63,11 +64,17 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const { partnerType } = usePartner();
   const pathname = usePathname();
+  const router = useRouter();
   const navItems = partnerType === "airline" ? navItemsAirline : navItemsHotel;
 
   const isActive = (href: string) => {
     if (href === "/partner/dashboard") return pathname === href;
     return pathname.startsWith(href);
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
   };
 
   return (
@@ -187,15 +194,15 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           </button>
 
           {/* Logout */}
-          <Link
-            href="/"
+          <button
+            onClick={handleLogout}
             className={`flex items-center gap-3 rounded-xl text-[13px] font-medium text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`}
           >
             <div className={`flex items-center justify-center ${isCollapsed ? "" : "w-8 h-8"}`}>
               <LogOut className="w-[18px] h-[18px] flex-shrink-0" />
             </div>
             {!isCollapsed && <span>Log Out</span>}
-          </Link>
+          </button>
         </div>
       </aside>
     </>

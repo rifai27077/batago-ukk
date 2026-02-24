@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Star, X, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { createReview } from "@/lib/api";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -26,14 +27,17 @@ export default function ReviewModal({ isOpen, onClose, bookingDetails }: ReviewM
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    onClose();
-    alert("Review submitted successfully! Thank you for your feedback.");
-    setRating(0);
-    setComment("");
+    try {
+        await createReview(Number(bookingDetails.id), rating, comment);
+        alert("Review submitted successfully! Thank you for your feedback.");
+        setRating(0);
+        setComment("");
+        onClose();
+    } catch (error) {
+        alert(error instanceof Error ? error.message : "Failed to submit review");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (

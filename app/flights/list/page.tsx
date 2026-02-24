@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ListingSearchHeader from "@/components/flights/list/ListingSearchHeader";
 import FlightFilters from "@/components/flights/list/FlightFilters";
@@ -10,9 +11,13 @@ import FlightCard from "@/components/flights/list/FlightCard";
 import FlightSkeleton from "@/components/flights/list/FlightSkeleton";
 import Footer from "@/components/Footer";
 import { ChevronRight } from "lucide-react";
+import { searchFlights, type FlightResult, getFavourites, toggleFavourite } from "@/lib/api";
+import { toast } from "react-hot-toast";
 
-const initialFlights = [
+// Fallback data for when API has no results or is unavailable
+const fallbackFlights = [
   {
+    id: 1,
     airline: "Emirates",
     logo: "https://www.vectorlogo.zone/logos/emirates/emirates-icon.svg",
     departureTime: "12:00 pm",
@@ -26,6 +31,7 @@ const initialFlights = [
     reviews: 54,
   },
   {
+    id: 2,
     airline: "Fly Dubai",
     logo: "https://www.vectorlogo.zone/logos/flydubai/flydubai-icon.svg",
     departureTime: "11:50 am",
@@ -39,6 +45,7 @@ const initialFlights = [
     reviews: 42,
   },
   {
+    id: 3,
     airline: "Qatar",
     logo: "https://www.vectorlogo.zone/logos/qatar_airways/qatar_airways-icon.svg",
     departureTime: "01:30 pm",
@@ -52,6 +59,7 @@ const initialFlights = [
     reviews: 128,
   },
   {
+    id: 4,
     airline: "Etihad",
     logo: "https://www.vectorlogo.zone/logos/etihad_airways/etihad_airways-icon.svg",
     departureTime: "06:00 pm",
@@ -66,9 +74,45 @@ const initialFlights = [
   },
 ];
 
-export default function FlightListingPage() {
+// Helper to map API result to card format
+function mapApiFlightToCard(flight: FlightResult) {
+  const depTime = new Date(flight.departure_time);
+  const arrTime = new Date(flight.arrival_time);
+
+  const formatTime = (d: Date) =>
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
+
+  const durationMs = arrTime.getTime() - depTime.getTime();
+  const durationH = Math.floor(durationMs / 3600000);
+  const durationM = Math.round((durationMs % 3600000) / 60000);
+
+  const depCode = flight.departure_airport?.code || "???";
+  const arrCode = flight.arrival_airport?.code || "???";
+  const lowestSeat = flight.seats?.reduce((min, s) => (s.price < min.price ? s : min), flight.seats[0]);
+
+  return {
+    airline: flight.partner?.company_name || flight.airline || "Unknown",
+    logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(flight.partner?.company_name || flight.airline || "A")}&background=random&size=128`,
+    departureTime: formatTime(depTime),
+    arrivalTime: formatTime(arrTime),
+    duration: `${durationH}h ${durationM}m`,
+    durationMinutes: durationH * 60 + durationM,
+    type: "Non-stop",
+    route: `${depCode}-${arrCode}`,
+    price: lowestSeat?.price || 0,
+    rating: 4.0,
+    reviews: 0,
+    id: flight.ID,
+  };
+}
+
+function FlightListingContent() {
+  const searchParams = useSearchParams();
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [flights, setFlights] = useState(fallbackFlights);
+  const [usingApi, setUsingApi] = useState(false);
+  const [favouriteIds, setFavouriteIds] = useState<number[]>([]);
   
   // Filter States
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
@@ -78,6 +122,71 @@ export default function FlightListingPage() {
   const [maxDeparture, setMaxDeparture] = useState("");
   const [minRating, setMinRating] = useState(0);
   const [activeSort, setActiveSort] = useState("cheapest");
+
+  // Fetch from API based on search params
+  useEffect(() => {
+    async function loadFlights() {
+      setIsLoading(true);
+      try {
+        const res = await searchFlights({
+          from: searchParams.get("from") || undefined,
+          to: searchParams.get("to") || undefined,
+          date: searchParams.get("date") || undefined,
+          class: searchParams.get("class") || undefined,
+          passengers: searchParams.get("passengers") ? Number(searchParams.get("passengers")) : undefined,
+        });
+        if (res.data && res.data.length > 0) {
+          setFlights(res.data.map(mapApiFlightToCard));
+          setUsingApi(true);
+        } else {
+          setFlights(fallbackFlights);
+          setUsingApi(false);
+        }
+      } catch {
+        // Fallback to static data if API is unavailable
+        setFlights(fallbackFlights);
+        setUsingApi(false);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadFlights();
+  }, [searchParams]);
+
+  // Fetch Favourites independently
+  useEffect(() => {
+    async function fetchFavs() {
+      try {
+        const res = await getFavourites("flight");
+        if (res.data) {
+          const ids = res.data.map((f: any) => f.flight_id);
+          setFavouriteIds(ids);
+        }
+      } catch (err) {
+        console.error("Failed to fetch favourites", err);
+      }
+    }
+    fetchFavs();
+  }, []);
+
+  const handleToggleFav = async (flightId: number) => {
+    if (!flightId) {
+      toast.error("Please login to save favourites");
+      return;
+    }
+    try {
+      const res = await toggleFavourite("flight", flightId);
+      if (res.is_favourite) {
+        setFavouriteIds(prev => [...prev, flightId]);
+        toast.success("Added to favourites");
+      } else {
+        setFavouriteIds(prev => prev.filter(id => id !== flightId));
+        toast.success("Removed from favourites");
+      }
+    } catch (err) {
+      toast.error("Failed to toggle favourite");
+    }
+  };
 
   // Helper: parse "12:00 pm" => minutes from midnight
   const parseTimeToMinutes = (timeStr: string): number => {
@@ -97,17 +206,11 @@ export default function FlightListingPage() {
     return h * 60 + m;
   };
 
-  // Simulate initial load
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleFilterChange = (changeFn: () => void) => {
+  const handleFilterChange = useCallback((changeFn: () => void) => {
     setIsLoading(true);
     changeFn();
-    setTimeout(() => setIsLoading(false), 600);
-  };
+    setTimeout(() => setIsLoading(false), 400);
+  }, []);
 
   const handleAirlineToggle = (airline: string) => {
     handleFilterChange(() => {
@@ -120,16 +223,14 @@ export default function FlightListingPage() {
   };
 
   const filteredAndSortedFlights = useMemo(() => {
-    const result = initialFlights.filter(flight => {
+    const result = flights.filter(flight => {
         const matchesAirline = selectedAirlines.length === 0 || selectedAirlines.includes(flight.airline);
 
-        // Price filter: only apply if user has entered a value
         const parsedMinPrice = minPrice ? Number(minPrice) : null;
         const parsedMaxPrice = maxPrice ? Number(maxPrice) : null;
         const matchesMinPrice = parsedMinPrice === null || flight.price >= parsedMinPrice;
         const matchesMaxPrice = parsedMaxPrice === null || flight.price <= parsedMaxPrice;
 
-        // Departure time filter: only apply if user has entered a value
         const flightMinutes = parseTimeToMinutes(flight.departureTime);
         const parsedMinDep = minDeparture ? parseInputTimeToMinutes(minDeparture) : null;
         const parsedMaxDep = maxDeparture ? parseInputTimeToMinutes(maxDeparture) : null;
@@ -140,7 +241,6 @@ export default function FlightListingPage() {
         return matchesAirline && matchesMinPrice && matchesMaxPrice && matchesMinDep && matchesMaxDep && matchesRating;
     });
 
-    // Sort
     result.sort((a, b) => {
         if (activeSort === "cheapest") return a.price - b.price;
         if (activeSort === "quickest") return a.durationMinutes - b.durationMinutes;
@@ -149,7 +249,7 @@ export default function FlightListingPage() {
     });
 
     return result;
-  }, [selectedAirlines, minPrice, maxPrice, minDeparture, maxDeparture, minRating, activeSort]);
+  }, [flights, selectedAirlines, minPrice, maxPrice, minDeparture, maxDeparture, minRating, activeSort]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -161,6 +261,15 @@ export default function FlightListingPage() {
           <ListingSearchHeader />
         </Suspense>
       </div>
+
+      {/* API Status Banner */}
+      {!usingApi && !isLoading && (
+        <div className="max-w-7xl mx-auto w-full px-4 lg:px-6 pt-4">
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-lg text-sm">
+            Showing sample flights. Add flight data to your database to see real results.
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-6 py-8 lg:py-12">
         {/* Breadcrumb */}
@@ -260,10 +369,10 @@ export default function FlightListingPage() {
             
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                  <p className="text-sm font-bold text-foreground">
-                    Showing {filteredAndSortedFlights.length} of <span className="text-secondary">{initialFlights.length} places</span>
+                    Showing {filteredAndSortedFlights.length} of <span className="text-secondary">{flights.length} places</span>
                  </p>
                  <div className="flex items-center gap-2 text-sm font-bold text-foreground cursor-pointer self-end sm:self-auto">
-                    Sort by <span className="text-foreground/60 font-bold uppercase tracking-tight">{activeSort}</span>
+                    Sort by <span className="text-foreground/60 font-bold tracking-tight">{activeSort}</span>
                     <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -281,6 +390,8 @@ export default function FlightListingPage() {
                         key={idx} 
                         {...flight} 
                         price={`Rp. ${flight.price.toLocaleString('id-ID')}`}
+                        isFavourite={favouriteIds.includes(flight.id)}
+                        onToggle={() => handleToggleFav(flight.id)}
                     />
                 ))
               ) : (
@@ -306,5 +417,13 @@ export default function FlightListingPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function FlightListingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
+      <FlightListingContent />
+    </Suspense>
   );
 }

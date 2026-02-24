@@ -1,0 +1,93 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"github.com/rifai27077/batago-backend/internal/database"
+	"github.com/rifai27077/batago-backend/internal/models"
+	"github.com/rifai27077/batago-backend/internal/routes"
+	cors "github.com/rs/cors/wrapper/gin"
+)
+
+func main() {
+	// Load .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Warning: .env file not found, using default environment variables")
+	}
+
+	// Initialize Database
+	database.Connect()
+	database.Migrate()
+	
+	// Auto Migrate
+	log.Println("AutoMigrate: Updating database schema...")
+	if err := database.DB.AutoMigrate(
+		&models.Notification{},
+		&models.User{}, 
+		&models.Partner{}, 
+		&models.Promotion{}, 
+		&models.PartnerStaff{}, 
+		&models.Availability{}, 
+		&models.Flight{},
+		&models.Hotel{},
+		&models.HotelImage{},
+		&models.RoomType{},
+		&models.RoomImage{},
+		&models.City{},
+		&models.Facility{},
+		&models.Review{},
+		&models.Favourite{},
+		// Booking & Payment models
+		&models.Booking{},
+		&models.Payment{},
+		&models.ETicket{},
+		&models.HotelVoucher{},
+		&models.FlightBooking{},
+		&models.Passenger{},
+	); err != nil {
+		log.Printf("AutoMigrate Error: %v", err)
+	} else {
+		log.Println("AutoMigrate: Schema update completed successfully")
+	}
+
+	// Initialize Gin
+	r := gin.Default()
+
+	// CORS Configuration
+	r.Use(cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposedHeaders:   []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           int(12 * time.Hour / time.Second),
+	}))
+
+	// Health Check
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "UP",
+			"time":    time.Now().Format(time.RFC3339),
+			"message": "BataGo API is running smoothly",
+		})
+	})
+
+	// Setup all routes
+	routes.SetupRoutes(r)
+
+	// Start Server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Printf("🚀 BataGo API starting on port %s...", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
+}

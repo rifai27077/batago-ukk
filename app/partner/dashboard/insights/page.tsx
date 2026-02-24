@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 import { 
   TrendingUp, 
@@ -11,7 +12,8 @@ import {
   Calendar, 
   AlertTriangle,
   Plane,
-  Building2
+  Building2,
+  Loader2
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -23,73 +25,43 @@ import {
   CartesianGrid,
   Tooltip
 } from "recharts";
-
-// --- Mock Data: Hotel ---
-const comparisonDataHotel = [
-  { date: "01 Feb", you: 65, market: 58 },
-  { date: "03 Feb", you: 68, market: 60 },
-  { date: "05 Feb", you: 72, market: 62 },
-  { date: "07 Feb", you: 85, market: 75 },
-  { date: "09 Feb", you: 78, market: 70 },
-  { date: "11 Feb", you: 74, market: 68 },
-  { date: "13 Feb", you: 82, market: 72 },
-  { date: "15 Feb", you: 90, market: 85 },
-];
-
-const priceMarketDataHotel = [
-  { name: "Economy", yourPrice: 450000, marketAvg: 420000 },
-  { name: "Standard", yourPrice: 650000, marketAvg: 600000 },
-  { name: "Deluxe", yourPrice: 850000, marketAvg: 950000 },
-  { name: "Suite", yourPrice: 1250000, marketAvg: 1400000 },
-];
-
-// --- Mock Data: Airline ---
-const comparisonDataAirline = [
-  { date: "01 Feb", you: 78, market: 72 },
-  { date: "03 Feb", you: 80, market: 74 },
-  { date: "05 Feb", you: 85, market: 76 },
-  { date: "07 Feb", you: 92, market: 88 }, // Weekend spike
-  { date: "09 Feb", you: 88, market: 82 },
-  { date: "11 Feb", you: 84, market: 80 },
-  { date: "13 Feb", you: 86, market: 81 },
-  { date: "15 Feb", you: 95, market: 90 },
-];
-
-const priceMarketDataAirline = [
-  { name: "CGK-DPS (Eco)", yourPrice: 1250000, marketAvg: 1150000 },
-  { name: "CGK-SIN (Eco)", yourPrice: 950000, marketAvg: 1050000 },
-  { name: "SUB-KUL (Eco)", yourPrice: 850000, marketAvg: 900000 },
-  { name: "CGK-DPS (Biz)", yourPrice: 3500000, marketAvg: 3800000 },
-];
+import { getPartnerInsights, InsightsResponse } from "@/lib/api";
 
 export default function InsightsPage() {
   const { partnerType } = usePartner();
-  const isHotel = partnerType === "hotel";
+  const [data, setData] = useState<InsightsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Select Data based on Partner Type
-  const comparisonData = isHotel ? comparisonDataHotel : comparisonDataAirline;
-  const priceMarketData = isHotel ? priceMarketDataHotel : priceMarketDataAirline;
+  const fetchInsights = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getPartnerInsights();
+      setData(res);
+    } catch (err: any) {
+      setError(err.message || "Failed to load insights");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Metrics Configuration
-  const metrics = isHotel 
-    ? [
-        { label: "Occupancy Index", value: "112", change: "+5.2%", trend: "up", desc: "You are 12% above market" },
-        { label: "ADR Index", value: "94", change: "-2.1%", trend: "down", desc: "You are 6% below market" },
-        { label: "RevPAR Index", value: "105", change: "+3.4%", trend: "up", desc: "You are 5% above market" },
-      ]
-    : [
-        { label: "Load Factor Index", value: "108", change: "+4.1%", trend: "up", desc: "Seats filled 8% above avg" },
-        { label: "Yield Index", value: "98", change: "-1.5%", trend: "down", desc: "Yield 2% below competitors" },
-        { label: "RASK Index", value: "103", change: "+2.8%", trend: "up", desc: "Unit revenue 3% above avg" },
-      ];
+  useEffect(() => { fetchInsights(); }, [fetchInsights]);
 
-  // High Demand Events
-  const highDemandEvents = [
-    { date: "Fri, 27 Feb", reason: "Batam Jazz Festival", demand: "Very High", availability: isHotel ? "Sold Out" : "Full Flight", color: "bg-red-500" },
-    { date: "Sat, 28 Feb", reason: "Batam Jazz Festival", demand: "Peak", availability: isHotel ? "2 Rooms left" : "5 Seats left", color: "bg-orange-500" },
-    { date: "Wed, 04 Mar", reason: "Public Holiday", demand: "High", availability: isHotel ? "12 Rooms left" : "20 Seats left", color: "bg-blue-500" },
-    { date: "Sat, 14 Mar", reason: "Corporate Event", demand: "High", availability: isHotel ? "15 Rooms left" : "High Load", color: "bg-blue-500" },
-  ];
+  const isHotel = data?.partner_type === "hotel" || partnerType === "hotel";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
+        <span className="ml-3 text-gray-500 dark:text-slate-400">Loading market insights...</span>
+      </div>
+    );
+  }
+
+  const metrics = data?.metrics || [];
+  const comparisonData = data?.comparison_data || [];
+  const pricingData = data?.pricing_data || [];
+  const highDemandEvents = data?.high_demand || [];
 
   return (
     <div className="space-y-6 pb-10">
@@ -109,6 +81,10 @@ export default function InsightsPage() {
           Market: {isHotel ? "Batam (4-Star Hotels)" : "Regional (Direct Competitors)"}
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm">{error}</div>
+      )}
 
       {/* Index Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -220,30 +196,30 @@ export default function InsightsPage() {
           </div>
           
           <div className="space-y-5">
-            {priceMarketData.map((item) => (
+            {pricingData.map((item) => (
               <div key={item.name} className="space-y-2">
                 <div className="flex justify-between text-xs font-bold">
                   <span className="text-gray-700 dark:text-slate-200">{item.name}</span>
                   <span className="text-gray-400 dark:text-slate-500">
-                    Rp {item.yourPrice.toLocaleString()} vs <span className="text-gray-900 dark:text-white">Rp {item.marketAvg.toLocaleString()}</span>
+                    Rp {item.your_price.toLocaleString()} vs <span className="text-gray-900 dark:text-white">Rp {item.market_avg.toLocaleString()}</span>
                   </span>
                 </div>
                 <div className="h-2 w-full bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden flex">
                   <div 
                     className="h-full bg-primary" 
-                    style={{ width: `${(item.yourPrice / Math.max(item.yourPrice, item.marketAvg)) * 100}%` }} 
+                    style={{ width: `${(item.your_price / Math.max(item.your_price, item.market_avg)) * 100}%` }} 
                   />
                 </div>
-                {item.yourPrice < item.marketAvg && (
+                {item.your_price < item.market_avg && (
                   <p className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1">
                     <TrendingDown className="w-3 h-3" />
-                    You are priced {(100 - (item.yourPrice / item.marketAvg * 100)).toFixed(1)}% below market
+                    You are priced {(100 - (item.your_price / item.market_avg * 100)).toFixed(1)}% below market
                   </p>
                 )}
-                {item.yourPrice > item.marketAvg && (
+                {item.your_price > item.market_avg && (
                   <p className="text-[10px] font-semibold text-amber-500 flex items-center gap-1">
                     <TrendingUp className="w-3 h-3" />
-                    You are priced {(item.yourPrice / item.marketAvg * 100 - 100).toFixed(1)}% above market
+                    You are priced {(item.your_price / item.market_avg * 100 - 100).toFixed(1)}% above market
                   </p>
                 )}
               </div>
@@ -255,7 +231,7 @@ export default function InsightsPage() {
             <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed font-medium">
                {isHotel 
                  ? <span>Your <span className="font-bold text-gray-900 dark:text-white">Suite Rooms</span> are significantly underpriced compared to the Nagoya market average.</span>
-                 : <span>Your <span className="font-bold text-gray-900 dark:text-white">CGK-SIN Route</span> is priced 10% below competitors despite high demand. Consider adjusting yield.</span>
+                 : <span>Review your pricing strategy against <span className="font-bold text-gray-900 dark:text-white">market benchmarks</span> to optimize revenue per available unit.</span>
                }
             </p>
           </div>

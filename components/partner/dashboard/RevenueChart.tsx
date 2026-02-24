@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -11,21 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 
-const monthlyData = [
-  { name: "Sep", revenue: 18500000, previous: 15200000 },
-  { name: "Oct", revenue: 22300000, previous: 18500000 },
-  { name: "Nov", revenue: 19800000, previous: 22300000 },
-  { name: "Dec", revenue: 31200000, previous: 19800000 },
-  { name: "Jan", revenue: 28400000, previous: 31200000 },
-  { name: "Feb", revenue: 34600000, previous: 28400000 },
-];
-
-const weeklyData = [
-  { name: "W1", revenue: 7200000, previous: 6100000 },
-  { name: "W2", revenue: 8400000, previous: 7200000 },
-  { name: "W3", revenue: 6800000, previous: 8400000 },
-  { name: "W4", revenue: 9100000, previous: 6800000 },
-];
+import { getPartnerFinance } from "@/lib/api";
 
 const periods = ["Monthly", "Weekly"] as const;
 type Period = typeof periods[number];
@@ -36,10 +22,44 @@ const formatCurrency = (value: number) => {
   return value.toString();
 };
 
-export default function RevenueChart() {
-  const [period, setPeriod] = useState<Period>("Monthly");
+interface RevenueChartProps {
+  data?: any[];
+}
 
-  const data = period === "Monthly" ? monthlyData : weeklyData;
+export default function RevenueChart({ data: initialData }: RevenueChartProps) {
+  const [period, setPeriod] = useState<Period>("Monthly");
+  const [chartData, setChartData] = useState<any[]>(initialData || []);
+  const [isLoading, setIsLoading] = useState(!initialData);
+
+  useEffect(() => {
+    if (initialData) {
+      setChartData(initialData);
+      setIsLoading(false);
+      return;
+    }
+
+    async function fetchChartData() {
+      try {
+        const res = await getPartnerFinance();
+        if (res.chart_data && res.chart_data.length > 0) {
+          setChartData(res.chart_data);
+        } else if (res.summary) {
+          // If backend doesn't provide historical yet, we show current month
+          setChartData([
+            { name: "Current", revenue: res.summary.net_revenue, previous: 0 }
+          ]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch chart data", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchChartData();
+  }, [initialData]);
+
+  const data = chartData;
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-gray-100 dark:border-slate-700">

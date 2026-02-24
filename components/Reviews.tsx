@@ -50,7 +50,7 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function Reviews() {
   return (
-    <section className="py-16 px-6 max-w-7xl mx-auto">
+    <section className="py-16 px-6 max-w-7xl mx-auto border-y border-gray-100">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -58,15 +58,15 @@ export default function Reviews() {
             Reviews
           </h2>
           <p className="text-muted text-sm">
-            What people says about Golobe facilities
+            What people says about BataGo
           </p>
         </div>
-        <Link
+        {/* <Link
           href="#"
           className="border border-primary text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           See All
-        </Link>
+        </Link> */}
       </div>
 
       {/* Reviews Grid */}

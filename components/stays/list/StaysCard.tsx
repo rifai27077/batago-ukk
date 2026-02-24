@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MapPin, Star } from "lucide-react";
 
 interface StaysCardProps {
+  id: number;
   name: string;
   image: string;
   location: string;
@@ -13,9 +14,12 @@ interface StaysCardProps {
   price: string;
   pricePerNight: string;
   amenities: string[];
+  isFavourite?: boolean;
+  onToggle?: () => void;
 }
 
 export default function StaysCard({
+  id,
   name,
   image,
   location,
@@ -24,6 +28,8 @@ export default function StaysCard({
   price,
   pricePerNight,
   amenities,
+  isFavourite = false,
+  onToggle,
 }: StaysCardProps) {
   return (
     <div className="bg-white rounded-[12px] shadow-[0_4px_16px_rgba(17,34,17,0.05)] p-0 hover:shadow-[0_4px_24px_rgba(17,34,17,0.08)] transition-all flex flex-col lg:flex-row overflow-hidden border border-foreground/5">
@@ -95,12 +101,18 @@ export default function StaysCard({
 
         {/* Bottom Actions */}
         <div className="mt-6 pt-6 border-t border-foreground/5 flex items-center gap-4">
-             <button className="w-10 h-10 rounded-[4px] border border-foreground/10 flex items-center justify-center text-foreground hover:bg-foreground/5 transition-colors shrink-0">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  onToggle?.();
+                }}
+                className={`w-10 h-10 rounded-[4px] border ${isFavourite ? "bg-primary/10 border-primary text-primary" : "border-foreground/10 text-foreground"} flex items-center justify-center hover:bg-foreground/5 transition-colors shrink-0`}
+             >
+                <svg className={`w-4 h-4 ${isFavourite ? "fill-primary" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
              </button>
-              <Link href="/stays/list/1" className="flex-1 bg-primary hover:bg-primary/80 text-white font-bold py-3 px-6 rounded-[4px] transition-all text-sm tracking-wider flex items-center justify-center">
+              <Link href={`/stays/list/${id}`} className="flex-1 bg-primary hover:bg-primary/80 text-white font-bold py-3 px-6 rounded-[4px] transition-all text-sm tracking-wider flex items-center justify-center">
                 View Availability
               </Link>
         </div>

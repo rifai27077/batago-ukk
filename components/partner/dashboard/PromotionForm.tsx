@@ -51,6 +51,7 @@ const promoTypes = [
 
 export default function PromotionForm({ isOpen, onClose, onSave, initialData }: PromotionFormProps) {
   const [step, setStep] = useState(1);
+  const [availableListings, setAvailableListings] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     type: "flash_sale",
@@ -63,8 +64,28 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
   });
 
   useEffect(() => {
+    async function fetchListings() {
+      try {
+        const { getPartnerListings } = await import("@/lib/api");
+        const res = await getPartnerListings({ limit: 100 });
+        setAvailableListings(res.data || []);
+      } catch (err) {
+        console.error("Failed to fetch listings for promotion", err);
+      }
+    }
+    if (isOpen) {
+      fetchListings();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({
+        ...initialData,
+        listings: initialData.listings ? initialData.listings.map(String) : [],
+        startDate: initialData.start_date ? initialData.start_date.split('T')[0] : "",
+        endDate: initialData.end_date ? initialData.end_date.split('T')[0] : "",
+      });
     }
   }, [initialData]);
 
@@ -211,32 +232,30 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
             <div className="space-y-4">
               <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Apply to Properties</label>
               <div className="space-y-2">
-                {[
-                  { id: "1", name: "Hotel Santika Premiere Batam", type: "Hotel" },
-                  { id: "2", name: "Santika Beach Resort", type: "Resort" },
-                  { id: "3", name: "Villa Paradise Bintan", type: "Villa" },
-                ].map((listing) => (
+                {availableListings.length > 0 ? availableListings.map((listing) => (
                   <label 
-                    key={listing.id}
+                    key={listing.ID}
                     className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <input 
                       type="checkbox"
-                      checked={formData.listings.includes(listing.id)}
+                      checked={formData.listings.includes(String(listing.ID))}
                       onChange={(e) => {
                         const newSelection = e.target.checked 
-                          ? [...formData.listings, listing.id]
-                          : formData.listings.filter(id => id !== listing.id);
+                          ? [...formData.listings, String(listing.ID)]
+                          : formData.listings.filter(id => id !== String(listing.ID));
                         setFormData({ ...formData, listings: newSelection });
                       }}
                       className="w-5 h-5 rounded border-gray-300 dark:border-slate-600 text-primary focus:ring-primary" 
                     />
                     <div>
                       <p className="text-sm font-bold text-gray-900 dark:text-white">{listing.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-slate-400">{listing.type} · Batam</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-400">{listing.type || "Hotel"} · {listing.city?.name || listing.address}</p>
                     </div>
                   </label>
-                ))}
+                )) : (
+                  <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-4">No listings available to apply promotion.</p>
+                )}
               </div>
             </div>
           )}

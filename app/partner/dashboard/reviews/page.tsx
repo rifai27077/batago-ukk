@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Star, MessageSquare, ThumbsUp, Search, Download, Plane, Building2 } from "lucide-react";
 import EmptyState from "@/components/partner/dashboard/EmptyState";
 import {
@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
+import { getPartnerReviews } from "@/lib/api";
 
 interface Review {
   id: string;
@@ -25,39 +26,7 @@ interface Review {
   reply?: string;
 }
 
-const mockHotelReviews: Review[] = [
-  { id: "1", guest: "Ahmad Rifai", avatar: "AR", rating: 5, comment: "Kamar bersih dan nyaman, staff sangat ramah! Sarapan juga enak. Pasti akan menginap lagi.", item: "Deluxe Room", date: "16 Feb 2026", reply: "Terima kasih atas ulasan positifnya, Pak Ahmad! Kami senang Anda menikmati menginap di sini. Ditunggu kedatangannya kembali!" },
-  { id: "2", guest: "Budi Pratama", avatar: "BP", rating: 5, comment: "Suite room-nya luar biasa! View laut yang indah dan fasilitas lengkap. Worth every penny.", item: "Suite Room", date: "15 Feb 2026" },
-  { id: "3", guest: "Siti Nurhaliza", avatar: "SN", rating: 4, comment: "Lokasi strategis, dekat dengan pusat kota. Kamar cukup luas untuk keluarga. WiFi agak lambat di malam hari.", item: "Family Room", date: "14 Feb 2026", reply: "Terima kasih feedbacknya, Bu Siti. Kami sudah meningkatkan bandwidth WiFi kami. Semoga pengalaman selanjutnya lebih baik!" },
-  { id: "4", guest: "Reza Arap", avatar: "RA", rating: 3, comment: "Kamar standar cukup oke untuk harganya. AC agak berisik di malam hari. Breakfast biasa saja.", item: "Standard Room", date: "12 Feb 2026" },
-  { id: "5", guest: "Dewi Lestari", avatar: "DL", rating: 5, comment: "Pengalaman menginap terbaik di Batam! Kolam renangnya amazing dan spa-nya relaxing banget.", item: "Deluxe Room", date: "10 Feb 2026" },
-  { id: "6", guest: "Maya Sari", avatar: "MS", rating: 4, comment: "Hotel dengan pelayanan prima. Check-in cepat, kamar wangi. Satu catatan: parking agak susah saat weekend.", item: "Deluxe Room", date: "8 Feb 2026" },
-];
 
-const mockAirlineReviews: Review[] = [
-  { id: "1", guest: "Ahmad Rifai", avatar: "AR", rating: 5, comment: "Penerbangan tepat waktu, pramugari ramah, dan makanan enak. Sangat merekomendasikan Batik Air.", item: "CGK - DPS (GA-402)", date: "16 Feb 2026", reply: "Terima kasih, Pak Ahmad! Kami senang bisa melayani Anda dalam penerbangan ke Bali." },
-  { id: "2", guest: "Budi Pratama", avatar: "BP", rating: 4, comment: "Kursi cukup nyaman untuk economy class. Leg room lega. Check-in agak antri panjang.", item: "CGK - SIN (GA-824)", date: "15 Feb 2026" },
-  { id: "3", guest: "Siti Nurhaliza", avatar: "SN", rating: 5, comment: "Pilot landingnya smooth banget! Perjalanan jadi tidak terasa melelahkan.", item: "SUB - KUL (QZ-321)", date: "14 Feb 2026", reply: "Terima kasih Bu Siti, keselamatan dan kenyamanan penumpang adalah prioritas kami." },
-  { id: "4", guest: "Reza Arap", avatar: "RA", rating: 2, comment: "Delay 2 jam tanpa pemberitahuan yang jelas. Sangat kecewa.", item: "DPS - SYD (GA-710)", date: "12 Feb 2026", reply: "Mohon maaf atas ketidaknyamanan ini, Pak Reza. Keterlambatan dikarenakan cuaca buruk di bandara tujuan." },
-  { id: "5", guest: "Dewi Lestari", avatar: "DL", rating: 5, comment: "Hiburan di pesawat lengkap, anak-anak jadi tenang sepanjang perjalanan.", item: "CGK - DPS (GA-402)", date: "10 Feb 2026" },
-];
-
-const ratingDistribution = [
-  { stars: "5★", count: 68, pct: 53 },
-  { stars: "4★", count: 38, pct: 30 },
-  { stars: "3★", count: 15, pct: 12 },
-  { stars: "2★", count: 5, pct: 4 },
-  { stars: "1★", count: 2, pct: 1 },
-];
-
-const ratingTrend = [
-  { month: "Sep", avg: 4.3 },
-  { month: "Oct", avg: 4.4 },
-  { month: "Nov", avg: 4.2 },
-  { month: "Dec", avg: 4.5 },
-  { month: "Jan", avg: 4.7 },
-  { month: "Feb", avg: 4.6 },
-];
 
 const tabs = ["All", "Replied", "Unreplied"] as const;
 
@@ -70,7 +39,66 @@ export default function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(3);
 
-  const reviews = partnerType === "hotel" ? mockHotelReviews : mockAirlineReviews;
+  // Fetch from API
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    avg_rating: 0,
+    response_rate: 0,
+    positive_sentiment: 0,
+  });
+
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        const res = await getPartnerReviews({ page: 1, limit: 100 });
+        if (res.data && res.data.length > 0) {
+          const mapped: Review[] = res.data.map((r) => ({
+            id: String(r.ID),
+            guest: r.user?.name || "Guest",
+            avatar: (r.user?.name || "GU").split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase(),
+            rating: r.rating,
+            comment: r.comment,
+            item: r.booking?.booking_code || "-",
+            date: new Date(r.CreatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          }));
+          setReviews(mapped);
+        }
+        if (res.meta.stats) {
+          setStats(res.meta.stats);
+        }
+      } catch (err) {
+        console.error("Failed to fetch reviews", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchReviews();
+  }, []);
+
+  const ratingDistribution = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0]; // 1, 2, 3, 4, 5 stars
+    reviews.forEach(r => {
+      if (r.rating >= 1 && r.rating <= 5) counts[r.rating - 1]++;
+    });
+    const total = reviews.length || 1;
+    return [5, 4, 3, 2, 1].map(s => ({
+      stars: `${s}★`,
+      count: counts[s - 1],
+      pct: Math.round((counts[s - 1] / total) * 100)
+    }));
+  }, [reviews]);
+
+  // const avgRating = useMemo(() => {
+  //   if (reviews.length === 0) return 0;
+  //   const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+  //   return Math.round((sum / reviews.length) * 10) / 10;
+  // }, [reviews]);
+  const avgRating = stats.avg_rating || 0;
+
+  const ratingTrend = [
+    { month: "Last 30 Days", avg: avgRating },
+  ];
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
@@ -129,13 +157,13 @@ export default function ReviewsPage() {
               <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">4.6</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{avgRating}</h3>
               <p className="text-sm text-gray-500 dark:text-slate-400">Average Rating</p>
             </div>
           </div>
           <div className="flex mt-3">
             {[1, 2, 3, 4, 5].map((s) => (
-              <Star key={s} className={`w-4 h-4 ${s <= 4 ? "text-amber-400 fill-amber-400" : "text-amber-400 fill-amber-400 opacity-50"}`} />
+              <Star key={s} className={`w-4 h-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-amber-400" : "text-gray-300 dark:text-slate-600"}`} />
             ))}
           </div>
         </div>
@@ -146,7 +174,7 @@ export default function ReviewsPage() {
               <MessageSquare className="w-6 h-6 text-emerald-600 dark:text-emerald-500" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">78%</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.response_rate}%</h3>
               <p className="text-sm text-gray-500 dark:text-slate-400">Response Rate</p>
             </div>
           </div>
@@ -158,7 +186,7 @@ export default function ReviewsPage() {
               <ThumbsUp className="w-6 h-6 text-blue-600 dark:text-blue-500" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">83%</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{Math.round(stats.positive_sentiment)}%</h3>
               <p className="text-sm text-gray-500 dark:text-slate-400">Positive Sentiment</p>
             </div>
           </div>

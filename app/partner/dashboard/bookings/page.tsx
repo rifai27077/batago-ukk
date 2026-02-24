@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Search, Download, Eye, Filter, Plane, Building2 } from "lucide-react";
 import { useDateRange } from "@/components/partner/dashboard/DateRangeContext";
@@ -8,6 +8,7 @@ import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 import StatusBadge from "@/components/partner/dashboard/StatusBadge";
 import type { StatusType } from "@/components/partner/dashboard/StatusBadge";
 import Pagination from "@/components/partner/dashboard/Pagination";
+import { getPartnerBookings } from "@/lib/api";
 
 interface BaseBookingItem {
   id: string;
@@ -35,21 +36,7 @@ interface AirlineBookingItem extends BaseBookingItem {
 
 type BookingItem = HotelBookingItem | AirlineBookingItem;
 
-const mockHotelBookings: HotelBookingItem[] = [
-  { id: "BG-HOT-001", type: "hotel", guest: "Ahmad Rifai", property: "Deluxe Room", checkIn: "16 Feb", checkOut: "18 Feb", status: "confirmed", amount: "Rp 1.700.000", createdAt: "14 Feb" },
-  { id: "BG-HOT-002", type: "hotel", guest: "Budi Pratama", property: "Suite Room", checkIn: "17 Feb", checkOut: "20 Feb", status: "pending", amount: "Rp 4.500.000", createdAt: "14 Feb" },
-  { id: "BG-HOT-003", type: "hotel", guest: "Siti Nurhaliza", property: "Family Room", checkIn: "20 Feb", checkOut: "22 Feb", status: "confirmed", amount: "Rp 4.400.000", createdAt: "13 Feb" },
-  { id: "BG-HOT-004", type: "hotel", guest: "Reza Arap", property: "Standard Room", checkIn: "15 Feb", checkOut: "16 Feb", status: "completed", amount: "Rp 650.000", createdAt: "12 Feb" },
-  { id: "BG-HOT-005", type: "hotel", guest: "Dewi Lestari", property: "Deluxe Room", checkIn: "14 Feb", checkOut: "15 Feb", status: "cancelled", amount: "Rp 850.000", createdAt: "11 Feb" },
-];
 
-const mockAirlineBookings: AirlineBookingItem[] = [
-  { id: "BG-AIR-001", type: "airline", passenger: "Ahmad Rifai", flightNumber: "GA-402", route: "CGK - DPS", date: "16 Feb 2026", seatClass: "Economy", status: "confirmed", amount: "Rp 1.200.000", createdAt: "14 Feb" },
-  { id: "BG-AIR-002", type: "airline", passenger: "Budi Pratama", flightNumber: "GA-824", route: "CGK - SIN", date: "18 Feb 2026", seatClass: "Business", status: "confirmed", amount: "Rp 4.500.000", createdAt: "14 Feb" },
-  { id: "BG-AIR-003", type: "airline", passenger: "Siti Nurhaliza", flightNumber: "QZ-321", route: "SUB - KUL", date: "20 Feb 2026", seatClass: "Economy", status: "pending", amount: "Rp 850.000", createdAt: "15 Feb" },
-  { id: "BG-AIR-004", type: "airline", passenger: "Reza Arap", flightNumber: "GA-710", route: "DPS - SYD", date: "22 Feb 2026", seatClass: "First Class", status: "completed", amount: "Rp 12.000.000", createdAt: "10 Feb" },
-  { id: "BG-AIR-005", type: "airline", passenger: "Dewi Lestari", flightNumber: "GA-402", route: "CGK - DPS", date: "23 Feb 2026", seatClass: "Economy", status: "cancelled", amount: "Rp 1.200.000", createdAt: "12 Feb" },
-];
 
 const tabs = [
   { label: "All", value: "all" },
@@ -66,8 +53,63 @@ export default function BookingsPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const rawData = partnerType === "hotel" ? mockHotelBookings : mockAirlineBookings;
+  // Fetch from API
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
+
+  useEffect(() => {
+    async function fetchBookings() {
+      try {
+        const res = await getPartnerBookings({ page: 1, limit: 100 });
+        if (res.data && res.data.length > 0) {
+          const mapped: BookingItem[] = res.data.map((b) => {
+            const statusMap: Record<string, StatusType> = {
+              NEW: "pending",
+              CONFIRMED: "confirmed",
+              CHECKED_IN: "confirmed",
+              COMPLETED: "completed",
+              CANCELLED: "cancelled",
+            };
+            const createdDate = new Date(b.CreatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+            if (b.type === "flight") {
+              return {
+                id: b.booking_code,
+                type: "airline" as const,
+                passenger: b.user?.name || "Guest",
+                flightNumber: b.booking_code,
+                route: "-",
+                date: createdDate,
+                seatClass: "Economy",
+                status: statusMap[b.booking_status] || "pending",
+                amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
+                createdAt: createdDate,
+              };
+            }
+            return {
+              id: b.booking_code,
+              type: "hotel" as const,
+              guest: b.user?.name || "Guest",
+              property: "-",
+              checkIn: createdDate,
+              checkOut: "-",
+              status: statusMap[b.booking_status] || "pending",
+              amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
+              createdAt: createdDate,
+            };
+          });
+          setBookings(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch bookings", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchBookings();
+  }, []);
+
+  const rawData = bookings;
 
   const filtered = useMemo(() => {
     return rawData.filter((b) => {

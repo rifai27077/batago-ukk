@@ -16,13 +16,26 @@ const quickActions = [
 ];
 
 import OnboardingProgress from "@/components/partner/dashboard/OnboardingProgress";
+import { getDashboardStats, DashboardStats } from "@/lib/api";
 
 export default function DashboardOverview() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    async function fetchStats() {
+      try {
+        const res = await getDashboardStats();
+        if (res.data) {
+          setStats(res.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchStats();
   }, []);
 
   if (isLoading) return <DashboardSkeleton />;
@@ -37,10 +50,10 @@ export default function DashboardOverview() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold">Selamat Sore, Bakso! 👋</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">Selamat Sore, Partner! 👋</h1>
           </div>
           <p className="text-black dark:text-white/70 text-sm md:text-base max-w-lg">
-            Berikut ringkasan performa bisnis Anda hari ini. Ada <span className="text-primary font-semibold">3 booking baru</span> yang perlu ditinjau.
+            Berikut ringkasan performa bisnis Anda hari ini. Ada <span className="text-primary font-semibold">{stats?.bookings?.trend || 0} booking baru</span> minggu ini.
           </p>
 
           {/* Quick Actions */}
@@ -66,34 +79,34 @@ export default function DashboardOverview() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Bookings"
-          value="156"
-          subtitle="Bulan ini"
+          value={stats?.bookings?.total.toString() || "0"}
+          subtitle="All time"
           icon={CalendarCheck}
-          trend={{ value: "+12%", direction: "up" }}
+          trend={{ value: `${(stats?.bookings?.trend ?? 0) > 0 ? "+" : ""}${stats?.bookings?.trend ?? 0}%`, direction: (stats?.bookings?.trend ?? 0) >= 0 ? "up" : "down" }}
           accentColor="bg-primary"
         />
         <StatCard
           title="Revenue"
-          value="Rp 34.6M"
-          subtitle="Bulan ini"
+          value={`Rp ${(stats?.revenue?.total || 0).toLocaleString()}`}
+          subtitle="All time"
           icon={Wallet}
-          trend={{ value: "+8%", direction: "up" }}
+          trend={{ value: `${(stats?.revenue?.trend ?? 0) > 0 ? "+" : ""}${stats?.revenue?.trend ?? 0}%`, direction: (stats?.revenue?.trend ?? 0) >= 0 ? "up" : "down" }}
           accentColor="bg-primary"
         />
         <StatCard
           title="Occupancy Rate"
-          value="78%"
-          subtitle="Rata-rata"
+          value={`${stats?.occupancy?.rate || 0}%`}
+          subtitle="Average"
           icon={BarChart3}
-          trend={{ value: "-3%", direction: "down" }}
+          trend={{ value: `${(stats?.occupancy?.trend ?? 0) > 0 ? "+" : ""}${stats?.occupancy?.trend ?? 0}%`, direction: (stats?.occupancy?.trend ?? 0) >= 0 ? "up" : "down" }}
           accentColor="bg-primary"
         />
         <StatCard
           title="Avg. Rating"
-          value="4.6"
-          subtitle="dari 128 reviews"
+          value={stats?.rating?.average.toString() || "0"}
+          subtitle={`dari ${stats?.rating?.count || 0} reviews`}
           icon={Star}
-          trend={{ value: "+0.2", direction: "up" }}
+          trend={{ value: `${(stats?.rating?.trend ?? 0) > 0 ? "+" : ""}${stats?.rating?.trend ?? 0}`, direction: (stats?.rating?.trend ?? 0) >= 0 ? "up" : "down" }}
           accentColor="bg-primary"
         />
       </div>
@@ -106,17 +119,11 @@ export default function DashboardOverview() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Activity</h3>
           <div className="space-y-4">
-            {[
-              { title: "Booking baru masuk", desc: "Ahmad R. — Deluxe Room", time: "5 menit lalu", dotColor: "bg-primary" },
-              { title: "Ulasan baru", desc: "⭐⭐⭐⭐⭐ dari Budi P.", time: "1 jam lalu", dotColor: "bg-primary" },
-              { title: "Pembayaran diterima", desc: "Rp 3.200.000 ditransfer", time: "3 jam lalu", dotColor: "bg-primary" },
-              { title: "Check-out hari ini", desc: "Siti N. — Suite Room", time: "5 jam lalu", dotColor: "bg-primary" },
-              { title: "Listing diperbarui", desc: "Family Room harga diubah", time: "1 hari lalu", dotColor: "bg-primary" },
-            ].map((item, i) => (
+            {stats?.recent_activity.map((item, i) => (
               <div key={i} className="flex items-start gap-3 group cursor-pointer">
                 <div className="relative mt-1">
-                  <span className={`w-2.5 h-2.5 rounded-full block ${item.dotColor}`} />
-                  {i < 4 && <span className="absolute top-3 left-1/2 -translate-x-1/2 w-px h-8 bg-gray-100 dark:bg-slate-600" />}
+                  <span className={`w-2.5 h-2.5 rounded-full block bg-primary`} />
+                  {i < (stats?.recent_activity.length || 0) - 1 && <span className="absolute top-3 left-1/2 -translate-x-1/2 w-px h-8 bg-gray-100 dark:bg-slate-600" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 group-hover:text-primary transition-colors">{item.title}</p>
@@ -125,6 +132,9 @@ export default function DashboardOverview() {
                 </div>
               </div>
             ))}
+            {!stats?.recent_activity.length && (
+                <p className="text-sm text-gray-500">No recent activity.</p>
+            )}
           </div>
           <Link
             href="/partner/dashboard/bookings"
