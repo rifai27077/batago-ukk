@@ -10,8 +10,6 @@ import (
 	"github.com/rifai27077/batago-backend/internal/models"
 )
 
-// SearchFlights godoc
-// GET /v1/flights?from=CGK&to=DPS&date=2026-03-01&class=Economy&passengers=1
 func SearchFlights(c *gin.Context) {
 	from := c.Query("from")       // airport code
 	to := c.Query("to")           // airport code
@@ -19,9 +17,12 @@ func SearchFlights(c *gin.Context) {
 	class := c.Query("class")     // Economy, Business, First
 	passStr := c.Query("passengers")
 
-	// Pagination
+	// Pagination with cap
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if limit > 100 {
+		limit = 100
+	}
 	offset := (page - 1) * limit
 
 	query := database.DB.Model(&models.Flight{}).
@@ -29,7 +30,7 @@ func SearchFlights(c *gin.Context) {
 		Preload("ArrivalAirport").
 		Preload("Partner")
 
-	// Filter by departure airport
+	// Single query for departure airport lookup
 	if from != "" {
 		var depAirport models.Airport
 		if err := database.DB.Where("code = ?", from).First(&depAirport).Error; err == nil {
@@ -37,7 +38,7 @@ func SearchFlights(c *gin.Context) {
 		}
 	}
 
-	// Filter by arrival airport
+	// Single query for arrival airport lookup
 	if to != "" {
 		var arrAirport models.Airport
 		if err := database.DB.Where("code = ?", to).First(&arrAirport).Error; err == nil {
@@ -64,7 +65,34 @@ func SearchFlights(c *gin.Context) {
 		return
 	}
 
-	// Build response with seat info
+	if len(flights) == 0 {
+		c.JSON(http.StatusOK, gin.H{"data": []interface{}{}, "meta": gin.H{"page": page, "limit": limit, "total": total}})
+		return
+	}
+
+	// Batch fetch all seats for the returned flights in ONE query (eliminates N+1)
+	flightIDs := make([]uint, len(flights))
+	for i, f := range flights {
+		flightIDs[i] = f.ID
+	}
+
+	passengers, _ := strconv.Atoi(passStr)
+	seatQuery := database.DB.Where("flight_id IN ?", flightIDs)
+	if class != "" {
+		seatQuery = seatQuery.Where("class = ?", class)
+	}
+	if passengers > 0 {
+		seatQuery = seatQuery.Where("available_seats >= ?", passengers)
+	}
+	var allSeats []models.FlightSeat
+	seatQuery.Find(&allSeats)
+
+	// Build map: flight_id -> []FlightSeat (O(1) lookup)
+	seatMap := make(map[uint][]models.FlightSeat)
+	for _, s := range allSeats {
+		seatMap[s.FlightID] = append(seatMap[s.FlightID], s)
+	}
+
 	type FlightResponse struct {
 		models.Flight
 		Seats []models.FlightSeat `json:"seats"`
@@ -72,24 +100,12 @@ func SearchFlights(c *gin.Context) {
 
 	results := []FlightResponse{}
 	for _, f := range flights {
-		seats := []models.FlightSeat{}
-		seatQuery := database.DB.Where("flight_id = ?", f.ID)
-		if class != "" {
-			seatQuery = seatQuery.Where("class = ?", class)
-		}
-
-		passengers, _ := strconv.Atoi(passStr)
-		if passengers > 0 {
-			seatQuery = seatQuery.Where("available_seats >= ?", passengers)
-		}
-
-		seatQuery.Find(&seats)
-
+		seats := seatMap[f.ID]
 		if len(seats) > 0 || (class == "" && passStr == "") {
-			results = append(results, FlightResponse{
-				Flight: f,
-				Seats:  seats,
-			})
+			if seats == nil {
+				seats = []models.FlightSeat{}
+			}
+			results = append(results, FlightResponse{Flight: f, Seats: seats})
 		}
 	}
 
@@ -102,6 +118,7 @@ func SearchFlights(c *gin.Context) {
 		},
 	})
 }
+
 
 // GetFlightDetail godoc
 // GET /v1/flights/:id

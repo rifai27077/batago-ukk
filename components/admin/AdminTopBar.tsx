@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Menu, Bell, ChevronDown, User, Settings, LogOut, Sun, Moon, BellOff, Check } from "lucide-react";
 import { useTheme } from "@/components/partner/dashboard/ThemeProvider";
 import GlobalSearch from "@/components/GlobalSearch";
+import { getProfile, getAdminNotifications, markAdminNotificationsRead } from "@/lib/api";
 
 interface AdminTopBarProps {
   onMenuToggle: () => void;
@@ -17,29 +19,57 @@ interface Notification {
   unread: boolean;
 }
 
-const initialNotifications: Notification[] = [
-  { id: 1, title: "Partner baru mendaftar", message: "Hotel Nuvasa Bay menunggu verifikasi", time: "5 menit lalu", unread: true },
-  { id: 2, title: "Dispute dibuka", message: "Booking #BG-240215-003 — refund request", time: "30 menit lalu", unread: true },
-  { id: 3, title: "Payout selesai", message: "Rp 45.000.000 ke 3 partner", time: "2 jam lalu", unread: false },
-  { id: 4, title: "User dilaporkan", message: "2 laporan baru menunggu review", time: "5 jam lalu", unread: false },
-];
-
 export default function AdminTopBar({ onMenuToggle }: AdminTopBarProps) {
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [adminName, setAdminName] = useState("Admin");
+  const [adminEmail, setAdminEmail] = useState("");
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const profileRes = await getProfile();
+        if (profileRes.user) {
+          setAdminName(profileRes.user.name);
+          setAdminEmail(profileRes.user.email);
+        }
+
+        const notifRes = await getAdminNotifications();
+        if (notifRes.data) {
+          setNotifications(notifRes.data.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            time: n.time,
+            unread: !n.is_read
+          })));
+        }
+      } catch (err) {
+        console.error("Failed to load admin topbar data:", err);
+      }
+    }
+    loadData();
+  }, []);
+
   const unreadCount = notifications.filter((n) => n.unread).length;
 
-  const markAsRead = (id: number) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAdminNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    } catch (err) {
+      console.error("Failed to mark notifications read:", err);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  const handleLogout = () => {
+    localStorage.removeItem("batago_token");
+    router.push("/login");
   };
 
   useEffect(() => {
@@ -94,7 +124,7 @@ export default function AdminTopBar({ onMenuToggle }: AdminTopBarProps) {
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white">Notifications</h3>
                   {unreadCount > 0 && (
                     <button
-                      onClick={markAllAsRead}
+                      onClick={handleMarkAllAsRead}
                       className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1"
                     >
                       <Check className="w-3 h-3" /> Mark all read
@@ -111,7 +141,7 @@ export default function AdminTopBar({ onMenuToggle }: AdminTopBarProps) {
                     notifications.map((n) => (
                       <button
                         key={n.id}
-                        onClick={() => markAsRead(n.id)}
+                        onClick={() => router.push("/admin/notifications")}
                         className={`w-full text-left px-4 py-3 border-b border-gray-50 dark:border-slate-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors ${
                           n.unread ? "bg-primary/5 dark:bg-primary/5" : ""
                         }`}
@@ -120,13 +150,18 @@ export default function AdminTopBar({ onMenuToggle }: AdminTopBarProps) {
                           {n.unread && <span className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 shrink-0" />}
                           <div className={n.unread ? "" : "ml-3.5"}>
                             <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{n.title}</p>
-                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{n.message}</p>
+                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
                             <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">{n.time}</p>
                           </div>
                         </div>
                       </button>
                     ))
                   )}
+                </div>
+                <div className="p-2 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
+                   <button onClick={() => router.push("/admin/notifications")} className="w-full py-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+                     View All Notifications
+                   </button>
                 </div>
               </div>
             )}
@@ -139,25 +174,28 @@ export default function AdminTopBar({ onMenuToggle }: AdminTopBarProps) {
               className="flex items-center gap-2 p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
             >
               <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm shadow-primary/20">
-                <span className="text-white font-bold text-xs">SA</span>
+                <span className="text-white font-bold text-xs">{adminName.substring(0, 2).toUpperCase()}</span>
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 leading-tight">Super Admin</p>
-                <p className="text-[10px] text-gray-400 dark:text-slate-500">admin@batago.com</p>
+                <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 leading-tight">{adminName}</p>
+                <p className="text-[10px] text-gray-400 dark:text-slate-500">{adminEmail}</p>
               </div>
               <ChevronDown className="w-4 h-4 text-gray-400 hidden sm:block" />
             </button>
 
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden z-50">
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                  <User className="w-4 h-4" /> Profile
-                </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                <button 
+                  onClick={() => router.push("/admin/settings")}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                >
                   <Settings className="w-4 h-4" /> Settings
                 </button>
                 <div className="h-px bg-gray-100 dark:bg-slate-700 my-1" />
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                >
                   <LogOut className="w-4 h-4" /> Logout
                 </button>
               </div>

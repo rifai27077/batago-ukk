@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Tag, Plus, Info, Search, Filter, Calendar, TrendingUp, Users, CheckCircle2, Clock, AlertCircle, MoreVertical, Edit2, Pause, Trash2, Building2, BarChart3, Plane, Ticket } from "lucide-react";
 import PromotionForm from "@/components/partner/dashboard/PromotionForm";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
-import { getPartnerPromotions, createPartnerPromotion, deletePartnerPromotion } from "@/lib/api";
+import { getPartnerPromotions, createPartnerPromotion, updatePartnerPromotion, deletePartnerPromotion } from "@/lib/api";
 import {
   ResponsiveContainer,
   BarChart,
@@ -20,6 +20,7 @@ interface Promotion {
   name: string;
   type: "flash_sale" | "last_minute" | "early_bird" | "seasonal";
   discount: number;
+  code: string;
   status: "active" | "scheduled" | "paused" | "expired";
   startDate: string;
   endDate: string;
@@ -68,11 +69,19 @@ export default function PromotionsPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPromo, setCurrentPromo] = useState<Promotion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | Promotion["status"]>(
     "all"
   );
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<{
+    total_active: number;
+    new_this_week?: number;
+    total_claims: number;
+    claims_growth?: number;
+    total_revenue: number;
+    revenue_growth?: number;
+  }>({
     total_active: 0,
     total_claims: 0,
     total_revenue: 0,
@@ -86,6 +95,7 @@ export default function PromotionsPage() {
           const mapped: Promotion[] = res.data.map((p) => ({
             id: String(p.ID),
             name: p.name,
+            code: p.code,
             type: p.type,
             discount: p.discount,
             status: p.status,
@@ -108,6 +118,38 @@ export default function PromotionsPage() {
     }
     fetchPromos();
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this promotion?")) return;
+    try {
+      await deletePartnerPromotion(Number(id));
+      setPromotions((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      console.error("Failed to delete promotion", err);
+    }
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === "active" ? "paused" : "active";
+    // Optimistic update
+    setPromotions((prev) => 
+      prev.map((p) => p.id === id ? { ...p, status: newStatus as any } : p)
+    );
+    try {
+      await updatePartnerPromotion(Number(id), { status: newStatus });
+    } catch (err) {
+      console.error("Failed to update status", err);
+      // Revert on failure
+      setPromotions((prev) => 
+        prev.map((p) => p.id === id ? { ...p, status: currentStatus as any } : p)
+      );
+    }
+  };
+
+  const handleEdit = (promo: Promotion) => {
+    setCurrentPromo(promo);
+    setIsModalOpen(true);
+  };
 
   // Compute chart data from actual promotions
   const chartData = useMemo(() => {
@@ -145,7 +187,10 @@ export default function PromotionsPage() {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setCurrentPromo(null);
+            setIsModalOpen(true);
+          }}
           className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm shadow-sm shadow-primary/20"
         >
           <Plus className="w-4 h-4" /> Create Promotion
@@ -164,10 +209,12 @@ export default function PromotionsPage() {
               <Tag className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
           </div>
-          <div className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-             <TrendingUp className="w-3 h-3" />
-             <span>+2 new this week</span>
-          </div>
+          {stats.new_this_week !== undefined && (
+            <div className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+               <TrendingUp className="w-3 h-3" />
+               <span>+{stats.new_this_week} new this week</span>
+            </div>
+          )}
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 relative overflow-hidden">
@@ -182,10 +229,12 @@ export default function PromotionsPage() {
               <Ticket className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
-          <div className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-             <TrendingUp className="w-3 h-3" />
-             <span>+12% vs last month</span>
-          </div>
+          {stats.claims_growth !== undefined && (
+            <div className={`flex items-center gap-1 text-sm font-medium ${stats.claims_growth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+               <TrendingUp className={`w-3 h-3 ${stats.claims_growth < 0 ? 'rotate-180' : ''}`} />
+               <span>{stats.claims_growth > 0 ? '+' : ''}{stats.claims_growth}% vs last month</span>
+            </div>
+          )}
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 relative overflow-hidden">
@@ -200,10 +249,12 @@ export default function PromotionsPage() {
               <BarChart3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
           </div>
-          <div className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-             <TrendingUp className="w-3 h-3" />
-             <span>+8.5% boost</span>
-          </div>
+          {stats.revenue_growth !== undefined && (
+            <div className={`flex items-center gap-1 text-sm font-medium ${stats.revenue_growth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+               <TrendingUp className={`w-3 h-3 ${stats.revenue_growth < 0 ? 'rotate-180' : ''}`} />
+               <span>{stats.revenue_growth > 0 ? '+' : ''}{stats.revenue_growth}% boost</span>
+            </div>
+          )}
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 relative overflow-hidden">
@@ -266,7 +317,10 @@ export default function PromotionsPage() {
                   >
                     <td className="py-4 px-5">
                       <div className="font-medium text-gray-900 dark:text-white">{promo.name}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{promo.discount}% Off</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{promo.discount}% Off</span>
+                        <span className="text-[10px] font-mono bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-slate-300">{promo.code}</span>
+                      </div>
                     </td>
                     <td className="py-4 px-5">
                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium text-white ${typeLabels[promo.type].color}`}>
@@ -305,9 +359,29 @@ export default function PromotionsPage() {
                        </div>
                     </td>
                     <td className="py-4 px-5 text-right">
-                      <button className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400 transition-colors">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                         <button 
+                           onClick={() => handleToggleStatus(promo.id, promo.status)}
+                           className={`p-1.5 rounded-lg transition-colors ${promo.status === 'active' ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10' : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'}`}
+                           title={promo.status === 'active' ? 'Pause' : 'Resume'}
+                         >
+                           {promo.status === 'active' ? <Pause className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                         </button>
+                         <button 
+                           onClick={() => handleEdit(promo)}
+                           className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg text-blue-500 transition-colors"
+                           title="Edit"
+                         >
+                           <Edit2 className="w-4 h-4" />
+                         </button>
+                         <button 
+                           onClick={() => handleDelete(promo.id)}
+                           className="p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg text-red-500 transition-colors"
+                           title="Delete"
+                         >
+                           <Trash2 className="w-4 h-4" />
+                         </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -354,23 +428,34 @@ export default function PromotionsPage() {
 
       <PromotionForm 
         isOpen={isModalOpen} 
+        initialData={currentPromo}
         onClose={() => setIsModalOpen(false)} 
         onSave={async (data) => {
+          console.log("Saving promotion data:", data);
           try {
-            await createPartnerPromotion({
+            const payload = {
               name: data.name || "New Promotion",
+              code: data.code || "",
               type: data.type || "flash_sale",
               discount: data.discount || 10,
               start_date: data.startDate || new Date().toISOString().split("T")[0],
               end_date: data.endDate || new Date().toISOString().split("T")[0],
               listings: data.listings.map(Number),
-            });
+            };
+
+            if (currentPromo) {
+              await updatePartnerPromotion(Number(currentPromo.id), payload);
+            } else {
+              await createPartnerPromotion(payload);
+            }
+
             // Refetch
             const res = await getPartnerPromotions({ page: 1, limit: 100 });
             if (res.data && res.data.length > 0) {
               const mapped: Promotion[] = res.data.map((p) => ({
                 id: String(p.ID),
                 name: p.name,
+                code: p.code,
                 type: p.type,
                 discount: p.discount,
                 status: p.status,
@@ -383,9 +468,10 @@ export default function PromotionsPage() {
               setPromotions(mapped);
             }
           } catch (err) {
-            console.error("Failed to create promotion", err);
+            console.error("Failed to save promotion", err);
           }
           setIsModalOpen(false);
+          setCurrentPromo(null);
         }}
       />
     </div>

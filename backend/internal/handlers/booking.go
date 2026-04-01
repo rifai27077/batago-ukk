@@ -240,6 +240,9 @@ func GetMyBookings(c *gin.Context) {
 	bookingType := c.Query("type") // flight / hotel
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if limit > 100 {
+		limit = 100
+	}
 	offset := (page - 1) * limit
 
 	query := database.DB.Where("user_id = ?", uid).Order("created_at DESC")

@@ -6,7 +6,7 @@ const footerLinks = {
   "Our Destinations": ["Canada", "Alaska", "France", "Iceland"],
   "Our Activities": ["Northern Lights", "Cruising & Sailing", "Multi-activities", "Kayaking"],
   "Travel Blogs": ["Bali Travel Guide", "Sri Lanka Travel Guide", "Peru Travel Guide", "Bali Travel Guide"],
-  "About Us": [{ label: "Our Story", href: "/about" }, { label: "Work with us", href: "/partner" }, { label: "FAQ", href: "/faq" }],
+  "About Us": [{ label: "Our Story", href: "/about" }, { label: "Work with us", href: "/partner" }, { label: "Promotions", href: "/promotions" }, { label: "FAQ", href: "/faq" }],
   "Contact Us": [{ label: "Get in Touch", href: "/contact" }, { label: "Partner Support", href: "/partner" }],
 };
 

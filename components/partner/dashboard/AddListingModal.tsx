@@ -18,6 +18,19 @@ interface AddListingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: any) => void;
+  editData?: {
+    id: string;
+    name: string;
+    type: string;
+    location: string;
+    description?: string;
+    rooms: number;
+    amenities?: string[];
+    price: string;
+    image?: string;
+    latitude?: number;
+    longitude?: number;
+  } | null;
 }
 
 const PROPERTY_TYPES = [
@@ -45,7 +58,7 @@ const AMENITIES = [
 // Default center for Indonesia/Batam area
 const DEFAULT_CENTER = { lat: 1.0456, lng: 104.0305 };
 
-export default function AddListingModal({ isOpen, onClose, onSave }: AddListingModalProps) {
+export default function AddListingModal({ isOpen, onClose, onSave, editData }: AddListingModalProps) {
   const [step, setStep] = useState(1);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -63,6 +76,44 @@ export default function AddListingModal({ isOpen, onClose, onSave }: AddListingM
     latitude: DEFAULT_CENTER.lat,
     longitude: DEFAULT_CENTER.lng,
   });
+
+  // Populate form when editData changes
+  useEffect(() => {
+    if (editData && isOpen) {
+      setFormData({
+        name: editData.name || "",
+        type: editData.type || "hotel",
+        location: editData.location || "",
+        description: editData.description || "",
+        rooms: editData.rooms || 1,
+        amenities: editData.amenities || [],
+        price: editData.price || "",
+        image: null,
+        latitude: editData.latitude || DEFAULT_CENTER.lat,
+        longitude: editData.longitude || DEFAULT_CENTER.lng,
+      });
+      if (editData.image && !editData.image.includes("unsplash.com")) {
+        setImagePreview(editData.image);
+      }
+      setStep(1);
+    } else if (!isOpen) {
+      // Reset form when modal closes
+      setFormData({
+        name: "",
+        type: "hotel",
+        location: "",
+        description: "",
+        rooms: 1,
+        amenities: [],
+        price: "",
+        image: null,
+        latitude: DEFAULT_CENTER.lat,
+        longitude: DEFAULT_CENTER.lng,
+      });
+      setImagePreview(null);
+      setStep(1);
+    }
+  }, [editData, isOpen]);
 
   // Load Leaflet CSS dynamically when modal opens
   useEffect(() => {
@@ -347,7 +398,7 @@ export default function AddListingModal({ isOpen, onClose, onSave }: AddListingM
                       alt="Property preview" 
                       className="w-full h-64 object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-green-400" />

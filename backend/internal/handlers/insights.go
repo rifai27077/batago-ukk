@@ -206,16 +206,27 @@ func generateAirlinePricing(partnerID uint) []gin.H {
 		}
 	}
 
+	// Fetch flights with airport preloads in one query
 	flights := []models.Flight{}
-	database.DB.Where("partner_id = ?", partnerID).Preload("DepartureAirport").Preload("ArrivalAirport").Limit(4).Find(&flights)
+	database.DB.Where("partner_id = ?", partnerID).
+		Preload("DepartureAirport").Preload("ArrivalAirport").
+		Limit(4).Find(&flights)
+
+	// Batch fetch all seats for all flights at once (eliminates N+1)
+	var allSeats []models.FlightSeat
+	database.DB.Where("flight_id IN ?", flightIDs[:min(4, len(flightIDs))]).Find(&allSeats)
+
+	// Build seat map: flight_id -> []FlightSeat
+	seatMap := make(map[uint][]models.FlightSeat)
+	for _, s := range allSeats {
+		seatMap[s.FlightID] = append(seatMap[s.FlightID], s)
+	}
 
 	result := []gin.H{}
 	for _, f := range flights {
-		seats := []models.FlightSeat{}
-		database.DB.Where("flight_id = ?", f.ID).Find(&seats)
-		for _, s := range seats {
+		for _, s := range seatMap[f.ID] {
 			routeName := f.DepartureAirport.Code + "-" + f.ArrivalAirport.Code + " (" + string(s.Class)[:3] + ")"
-			marketAvg := s.Price * 1.08 // Assume market is 8% higher
+			marketAvg := s.Price * 1.08
 			result = append(result, gin.H{
 				"name":       routeName,
 				"your_price": s.Price,
@@ -231,6 +242,14 @@ func generateAirlinePricing(partnerID uint) []gin.H {
 	}
 	return result
 }
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 
 func generateHighDemandEvents(isHotel bool) []gin.H {
 	now := time.Now()

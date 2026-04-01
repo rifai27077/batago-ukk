@@ -50,6 +50,7 @@ type Partner struct {
 	User           User          `gorm:"foreignKey:UserID" json:"user"`
 	CompanyName    string        `gorm:"type:varchar(255)" json:"company_name"`
 	Type           PartnerType   `gorm:"type:varchar(50)" json:"type"`
+	Address        string        `gorm:"type:text" json:"address"`
 	Status         PartnerStatus `gorm:"type:varchar(50);default:'DRAFT'" json:"status"`
 	CommissionRate float64       `gorm:"type:decimal(10,2)" json:"commission_rate"`
 	ApprovedAt     *time.Time    `json:"approved_at"`

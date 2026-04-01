@@ -69,6 +69,7 @@ export default function AnalyticsPage() {
   const conversionData = data?.conversion || [];
   const demographics = data?.demographics || [];
   const metricData = data?.metric_data || [];
+  const regionsData = (data as any)?.regions || [];
   
   // Icon mapping helper
   const getIcon = (name: string) => {
@@ -219,12 +220,29 @@ export default function AnalyticsPage() {
 
         {/* Top Regions / Routes */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
-           <div className="flex flex-col items-center justify-center h-full text-center p-10 text-gray-500">
-             <MapPin className="w-12 h-12 mb-4 text-gray-300" />
-             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Regional Data Coming Soon</h3>
-             <p className="text-sm max-w-xs mx-auto mt-2">
-               We are gathering more data to show you the top performing regions and routes for your business.
-             </p>
+           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-5">
+             {partnerType === "hotel" ? "Top Destinations" : "Top Routes (by City)"}
+           </h3>
+           <div className="h-64">
+             {regionsData.length > 0 ? (
+               <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={regionsData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} className="dark:opacity-10" />
+                   <XAxis type="number" hide />
+                   <YAxis dataKey="Name" type="category" tick={{ fill: "#9CA3AF", fontSize: 12 }} width={80} axisLine={false} tickLine={false} />
+                   <Tooltip
+                     cursor={{ fill: "transparent" }}
+                     contentStyle={{ backgroundColor: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px" }}
+                   />
+                   <Bar dataKey="Value" fill="#14B8A6" radius={[0, 4, 4, 0]} barSize={24} />
+                 </BarChart>
+               </ResponsiveContainer>
+             ) : (
+               <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                 <MapPin className="w-10 h-10 mb-2 opacity-20" />
+                 <p className="text-sm">No regional data available</p>
+               </div>
+             )}
            </div>
         </div>
       </div>

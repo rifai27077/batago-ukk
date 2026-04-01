@@ -1,10 +1,10 @@
 "use client";
 
-import { use } from "react";
-import { useState } from "react";
-import { ArrowLeft, Save, Building2, MapPin, CheckCircle2, AlertCircle } from "lucide-react";
+import { use, useEffect, useState } from "react";
+import { ArrowLeft, Save, Building2, MapPin, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import PhotoGalleryManager from "@/components/partner/dashboard/PhotoGalleryManager";
+import { getPartnerListings, updatePartnerListing } from "@/lib/api";
 
 const PROPERTY_TYPES = [
   { id: "hotel", label: "Hotel" },
@@ -32,39 +32,133 @@ interface PageProps {
 export default function EditListingPage({ params }: PageProps) {
   const { id } = use(params);
   
-  // Mock initial data - in real app fetch based on ID
+  const [isLoading, setIsLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [formData, setFormData] = useState({
-    name: "Hotel Santika Premiere Batam",
+    name: "",
     type: "hotel",
-    location: "Batam, Kepulauan Riau",
-    description: "Experience luxury at Hotel Santika Premiere Batam, strategically located in the heart of the city. Our hotel offers modern amenities, exquisite dining options, and spacious rooms with breathtaking views.",
-    rooms: 45,
-    amenities: ["wifi", "breakfast", "pool", "restaurant", "ac"],
-    price: "850000",
+    location: "",
+    description: "",
+    rooms: 0,
+    cityId: 0,
+    amenities: [] as string[],
+    photos: [] as { id: string; url: string; isMain: boolean }[],
+    price: "",
     status: "active",
   });
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const toggleAmenity = (id: string) => {
+  // Fetch real listing data
+  useEffect(() => {
+    async function fetchListing() {
+      try {
+        const res = await getPartnerListings({ page: 1, limit: 100 });
+        if (res.data) {
+          const listing = res.data.find((l) => String(l.ID) === id);
+          if (listing) {
+            // Map facility names to amenity IDs
+            const facilityNames = listing.facilities?.map((f: { name: string }) => f.name.toLowerCase()) || [];
+            const matchedAmenities = AMENITIES
+              .filter((a) => facilityNames.some((fn: string) => fn.includes(a.id) || a.label.toLowerCase().includes(fn)))
+              .map((a) => a.id);
+
+            setFormData({
+              name: listing.name || "",
+              type: listing.type?.toLowerCase() || "hotel",
+              location: listing.address || (listing.city?.name ? `${listing.city.name}, ${listing.city.country}` : ""),
+              description: listing.description || "",
+              rooms: listing.room_count || listing.rooms || 0,
+              cityId: listing.city_id || 0,
+              amenities: matchedAmenities,
+              photos: listing.images?.map((img: any, idx: number) => {
+                let url = img.url;
+                if (url.startsWith("uploads/") || url.startsWith("/uploads/")) {
+                  url = `http://localhost:8080${url.startsWith("/") ? "" : "/"}${url}`;
+                }
+                return {
+                  id: String(idx),
+                  url: url,
+                  isMain: img.is_primary,
+                };
+              }) || [],
+              price: listing.base_price ? String(listing.base_price) : "",
+              status: listing.status?.toLowerCase() || "active",
+            });
+          } else {
+            setNotFound(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch listing", err);
+        setNotFound(true);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchListing();
+  }, [id]);
+
+  const toggleAmenity = (amenityId: string) => {
     setFormData((prev) => ({
       ...prev,
-      amenities: prev.amenities.includes(id)
-        ? prev.amenities.filter((a) => a !== id)
-        : [...prev.amenities, id],
+      amenities: prev.amenities.includes(amenityId)
+        ? prev.amenities.filter((a) => a !== amenityId)
+        : [...prev.amenities, amenityId],
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await updatePartnerListing(Number(id), {
+        name: formData.name,
+        address: formData.location,
+        description: formData.description,
+        type: formData.type,
+        rooms: formData.rooms,
+        city_id: formData.cityId,
+        price: parseFloat(formData.price) || 0,
+        amenities: formData.amenities,
+        images: formData.photos.map(p => ({
+          url: p.url.replace("http://localhost:8080/", ""),
+          is_primary: p.isMain
+        })),
+        status: formData.status,
+      });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1500);
+    } catch (err) {
+      console.error("Failed to save listing", err);
+      alert("Failed to save: " + (err instanceof Error ? err.message : "Unknown error"));
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-gray-500 dark:text-slate-400">Loading listing data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <AlertCircle className="w-12 h-12 text-gray-300 dark:text-slate-600" />
+        <h2 className="text-lg font-bold text-gray-600 dark:text-slate-400">Listing not found</h2>
+        <Link href="/partner/dashboard/listings" className="text-sm text-primary hover:underline">
+          ← Back to Listings
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -79,7 +173,7 @@ export default function EditListingPage({ params }: PageProps) {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Listing</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">ID: {id}</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{formData.name || `ID: ${id}`}</p>
           </div>
         </div>
         
@@ -176,7 +270,10 @@ export default function EditListingPage({ params }: PageProps) {
           {/* Photos */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 space-y-5">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Property Photos</h2>
-            <PhotoGalleryManager />
+            <PhotoGalleryManager 
+              initialPhotos={formData.photos} 
+              onPhotosChange={(photos) => setFormData(prev => ({ ...prev, photos }))}
+            />
           </div>
 
           {/* Amenities */}
@@ -217,7 +314,11 @@ export default function EditListingPage({ params }: PageProps) {
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Listing Status</h2>
             
             <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-500/10 dark:border-emerald-500/20 cursor-pointer">
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                formData.status === "active" 
+                  ? "border-emerald-200 bg-emerald-50 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
+                  : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700"
+              }`}>
                 <input 
                   type="radio" 
                   name="status" 
@@ -232,7 +333,11 @@ export default function EditListingPage({ params }: PageProps) {
                 </div>
               </label>
 
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                formData.status === "draft" 
+                  ? "border-amber-200 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/20" 
+                  : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700"
+              }`}>
                 <input 
                   type="radio" 
                   name="status" 
@@ -244,6 +349,25 @@ export default function EditListingPage({ params }: PageProps) {
                 <div>
                   <span className="block text-sm font-bold text-gray-900 dark:text-white">Draft</span>
                   <span className="block text-xs text-gray-500 dark:text-slate-400">Hidden from search</span>
+                </div>
+              </label>
+
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                formData.status === "inactive" 
+                  ? "border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/20" 
+                  : "border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700"
+              }`}>
+                <input 
+                  type="radio" 
+                  name="status" 
+                  value="inactive"
+                  checked={formData.status === "inactive"}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-4 h-4 text-red-600 focus:ring-red-500"
+                />
+                <div>
+                  <span className="block text-sm font-bold text-gray-900 dark:text-white">Inactive</span>
+                  <span className="block text-xs text-gray-500 dark:text-slate-400">Temporarily disabled</span>
                 </div>
               </label>
             </div>

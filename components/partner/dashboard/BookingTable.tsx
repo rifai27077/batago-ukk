@@ -54,9 +54,9 @@ export default function BookingTable({
             id: b.booking_code,
             guest: b.user?.name || "Guest",
             property: b.type === "hotel" ? "Room" : "Flight",
-            date: new Date(b.CreatedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short" }),
+            date: new Date(b.CreatedAt).toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
             status: b.booking_status.toLowerCase() as StatusType,
-            amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
+            amount: `Rp ${b.total_amount.toLocaleString("en-US")}`,
           }));
           setBookings(mapped);
         }
@@ -111,8 +111,8 @@ export default function BookingTable({
       ) : paginatedBookings.length === 0 ? (
         <EmptyState
           variant="booking"
-          title="Belum ada booking"
-          description="Booking yang masuk akan muncul di sini. Pastikan listing Anda sudah aktif!"
+          title="No bookings yet"
+          description="Incoming bookings will appear here. Make sure your listing is active!"
           compact
         />
       ) : (

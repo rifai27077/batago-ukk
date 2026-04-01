@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Settings, Globe, Shield, Users, Plus, Trash2, Save } from "lucide-react";
 import AddAdminModal from "@/components/admin/modals/AddAdminModal";
 
@@ -8,15 +8,9 @@ interface AdminAccount {
   id: number;
   name: string;
   email: string;
-  role: "super_admin" | "support" | "finance" | "content";
-  lastActive: string;
+  role: string;
+  last_active: string;
 }
-
-const mockAdmins: AdminAccount[] = [
-  { id: 1, name: "Super Admin", email: "admin@batago.com", role: "super_admin", lastActive: "Online" },
-  { id: 2, name: "Sarah CS", email: "sarah@batago.com", role: "support", lastActive: "2 jam lalu" },
-  { id: 3, name: "Andi Finance", email: "andi@batago.com", role: "finance", lastActive: "1 hari lalu" },
-];
 
 const roleColors: Record<string, string> = {
   super_admin: "bg-primary/10 text-primary",
@@ -34,19 +28,62 @@ const roleLabels: Record<string, string> = {
 
 export default function AdminSettingsPage() {
   const [tab, setTab] = useState<"platform" | "admins" | "master">("platform");
-  const [admins, setAdmins] = useState<AdminAccount[]>(mockAdmins);
+  const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleAddAdmin = (newAdmin: any) => {
-    // Basic mapping for mock purposes
-    const roleMap: Record<string, AdminAccount["role"]> = {
-      "Super Admin": "super_admin",
-      "Support": "support",
-      "Finance": "finance",
-      "Content": "content"
-    };
-    
-    setAdmins([...admins, { ...newAdmin, role: roleMap[newAdmin.role] || "support" }]);
+  const fetchAdmins = async () => {
+    try {
+      setLoading(true);
+      const api = await import("@/lib/api");
+      const res = await api.getAdminAccounts();
+      if (res.data) setAdmins(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "admins") fetchAdmins();
+  }, [tab]);
+
+  const handleAddAdmin = async (newAdmin: any) => {
+    try {
+      const roleMap: Record<string, string> = {
+        "Super Admin": "super_admin",
+        "Support": "support",
+        "Finance": "finance",
+        "Content": "content"
+      };
+      
+      const payload = {
+        name: newAdmin.name,
+        email: newAdmin.email,
+        password: newAdmin.password || "password123", // Default password if modal doesn't provide
+        role: roleMap[newAdmin.role] || "support"
+      };
+
+      const api = await import("@/lib/api");
+      await api.createAdminAccount(payload);
+      fetchAdmins();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: number) => {
+    if (confirm("Are you sure you want to delete this admin account?")) {
+      try {
+        const api = await import("@/lib/api");
+        await api.deleteAdminAccount(id);
+        setAdmins(prev => prev.filter(a => a.id !== id));
+      } catch (err) {
+        console.error(err);
+        alert("Failed to delete admin. You cannot delete your own account.");
+      }
+    }
   };
 
   return (
@@ -166,14 +203,14 @@ export default function AdminSettingsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5 hidden md:table-cell">
-                      <span className={`text-xs ${admin.lastActive === "Online" ? "text-emerald-500 font-medium" : "text-gray-400 dark:text-slate-500"}`}>
-                        {admin.lastActive}
+                      <span className={`text-xs ${admin.last_active === "Online" ? "text-emerald-500 font-medium" : "text-gray-400 dark:text-slate-500"}`}>
+                        {admin.last_active}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       {admin.role !== "super_admin" && (
                         <button 
-                          onClick={() => setAdmins(admins.filter(a => a.id !== admin.id))}
+                          onClick={() => handleDeleteAdmin(admin.id)}
                           className="p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />

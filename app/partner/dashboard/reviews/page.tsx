@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
-import { getPartnerReviews } from "@/lib/api";
+import { getPartnerReviews, replyToPartnerReview } from "@/lib/api";
 
 interface Review {
   id: string;
@@ -42,39 +42,67 @@ export default function ReviewsPage() {
   // Fetch from API
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isReplying, setIsReplying] = useState(false);
   const [stats, setStats] = useState({
     avg_rating: 0,
     response_rate: 0,
     positive_sentiment: 0,
   });
+  const [ratingTrend, setRatingTrend] = useState<any[]>([]);
+  const [popularMentions, setPopularMentions] = useState<any[]>([]);
 
-  useEffect(() => {
-    async function fetchReviews() {
-      try {
-        const res = await getPartnerReviews({ page: 1, limit: 100 });
-        if (res.data && res.data.length > 0) {
-          const mapped: Review[] = res.data.map((r) => ({
-            id: String(r.ID),
-            guest: r.user?.name || "Guest",
-            avatar: (r.user?.name || "GU").split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase(),
-            rating: r.rating,
-            comment: r.comment,
-            item: r.booking?.booking_code || "-",
-            date: new Date(r.CreatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-          }));
-          setReviews(mapped);
-        }
-        if (res.meta.stats) {
-          setStats(res.meta.stats);
-        }
-      } catch (err) {
-        console.error("Failed to fetch reviews", err);
-      } finally {
-        setIsLoading(false);
+  const fetchReviews = async () => {
+    try {
+      const res: any = await getPartnerReviews({ page: 1, limit: 100 });
+      if (res.data && res.data.length > 0) {
+        const mapped: Review[] = res.data.map((r: any) => ({
+          id: String(r.ID),
+          guest: r.user?.name || "Guest",
+          avatar: (r.user?.name || "GU").split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase(),
+          rating: r.rating,
+          comment: r.comment,
+          item: r.booking?.booking_code || "-",
+          date: new Date(r.CreatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          reply: r.reply,
+        }));
+        setReviews(mapped);
       }
+      if (res.meta) {
+        if (res.meta.stats) setStats(res.meta.stats);
+        if (res.meta.rating_trend) setRatingTrend(res.meta.rating_trend);
+        if (res.meta.popular_mentions) setPopularMentions(res.meta.popular_mentions);
+      }
+    } catch (err) {
+      console.error("Failed to fetch reviews", err);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+// Add at the top:
+// import { getPartnerReviews, replyToPartnerReview } from "@/lib/api";
+  useEffect(() => {
     fetchReviews();
   }, []);
+
+  const handleReplySubmit = async (reviewId: string) => {
+    if (!replyText.trim()) return;
+    setIsReplying(true);
+    try {
+      const { replyToPartnerReview } = await import("@/lib/api");
+      await replyToPartnerReview(reviewId, replyText);
+      
+      // Optimistic Update
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, reply: replyText } : r));
+      setReplyingTo(null);
+      setReplyText("");
+    } catch (err) {
+      console.error("Failed to reply", err);
+      alert("Failed to send reply. Please try again.");
+    } finally {
+      setIsReplying(false);
+    }
+  };
 
   const ratingDistribution = useMemo(() => {
     const counts = [0, 0, 0, 0, 0]; // 1, 2, 3, 4, 5 stars
@@ -89,16 +117,7 @@ export default function ReviewsPage() {
     }));
   }, [reviews]);
 
-  // const avgRating = useMemo(() => {
-  //   if (reviews.length === 0) return 0;
-  //   const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-  //   return Math.round((sum / reviews.length) * 10) / 10;
-  // }, [reviews]);
   const avgRating = stats.avg_rating || 0;
-
-  const ratingTrend = [
-    { month: "Last 30 Days", avg: avgRating },
-  ];
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
@@ -157,7 +176,7 @@ export default function ReviewsPage() {
               <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{avgRating}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{avgRating.toFixed(1)}</h3>
               <p className="text-sm text-gray-500 dark:text-slate-400">Average Rating</p>
             </div>
           </div>
@@ -174,7 +193,7 @@ export default function ReviewsPage() {
               <MessageSquare className="w-6 h-6 text-emerald-600 dark:text-emerald-500" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.response_rate}%</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.response_rate.toFixed(1)}%</h3>
               <p className="text-sm text-gray-500 dark:text-slate-400">Response Rate</p>
             </div>
           </div>
@@ -282,7 +301,13 @@ export default function ReviewsPage() {
                         />
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => { setReplyingTo(null); setReplyText(""); }} className="px-3 py-1.5 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">Cancel</button>
-                          <button className="px-4 py-1.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90">Reply</button>
+                          <button 
+                            disabled={isReplying || !replyText.trim()}
+                            onClick={() => handleReplySubmit(review.id)}
+                            className="px-4 py-1.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                          >
+                            {isReplying ? "Sending..." : "Reply"}
+                          </button>
                         </div>
                       </div>
                     ) : (
@@ -339,7 +364,7 @@ export default function ReviewsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={ratingTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                   <XAxis dataKey="month" tick={{ fill: "#9CA3AF", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[3.5, 5]} tick={{ fill: "#9CA3AF", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 5]} tick={{ fill: "#9CA3AF", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     isAnimationActive={false}
                     contentStyle={{ backgroundColor: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "8px 12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
@@ -352,37 +377,25 @@ export default function ReviewsPage() {
           </div>
 
           {/* Popular Keywords */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Popular Mentions</h3>
-            <div className="flex flex-wrap gap-2">
-              {(partnerType === "hotel" ? [
-                { word: "bersih", count: 42, positive: true },
-                { word: "ramah", count: 38, positive: true },
-                { word: "nyaman", count: 35, positive: true },
-                { word: "strategis", count: 28, positive: true },
-                { word: "sarapan", count: 24, positive: true },
-                { word: "WiFi", count: 18, positive: false },
-              ] : [
-                { word: "tepat waktu", count: 50, positive: true },
-                { word: "nyaman", count: 45, positive: true },
-                { word: "pelayanan", count: 40, positive: true },
-                { word: "makanan", count: 30, positive: true },
-                { word: "bagasi", count: 12, positive: false },
-                { word: "delay", count: 8, positive: false },
-              ]).map((kw) => (
-                <span
-                  key={kw.word}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
-                    kw.positive
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200 dark:border-emerald-500/20"
-                      : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-500 border-red-200 dark:border-red-500/20"
-                  }`}
-                >
-                  {kw.word} ({kw.count})
-                </span>
-              ))}
+          {popularMentions.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
+              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Popular Mentions</h3>
+              <div className="flex flex-wrap gap-2">
+                {popularMentions.map((kw: any) => (
+                  <span
+                    key={kw.word}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+                      kw.positive
+                        ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200 dark:border-emerald-500/20"
+                        : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-500 border-red-200 dark:border-red-500/20"
+                    }`}
+                  >
+                    {kw.word} ({kw.count})
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

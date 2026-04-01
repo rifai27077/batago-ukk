@@ -26,4 +26,5 @@ type Review struct {
 	User      User    `gorm:"foreignKey:UserID" json:"user"`
 	Rating    int     `json:"rating"`
 	Comment   string  `gorm:"type:text" json:"comment"`
+	Reply     *string `gorm:"type:text" json:"reply"`
 }

@@ -4,16 +4,29 @@ import { useState } from "react";
 import { Check, ChevronRight, User, Building, CreditCard, Camera } from "lucide-react";
 import Link from "next/link";
 
-export default function OnboardingProgress() {
+interface OnboardingStep {
+  id: number;
+  title: string;
+  description?: string;
+  icon?: any;
+  status: "completed" | "current" | "pending" | "in_review";
+  link?: string;
+}
+
+interface OnboardingProgressProps {
+  steps?: OnboardingStep[];
+}
+
+export default function OnboardingProgress({ steps: initialSteps }: OnboardingProgressProps) {
   const [isDismissed, setIsDismissed] = useState(false);
 
-  const steps = [
+  const defaultSteps = [
     {
       id: 1,
       title: "Complete Profile",
       description: "Add your contact details and business information",
       icon: User,
-      status: "completed",
+      status: "current" as const,
       link: "/partner/dashboard/settings",
     },
     {
@@ -21,7 +34,7 @@ export default function OnboardingProgress() {
       title: "Verify Identity",
       description: "Upload necessary documents for verification",
       icon: Camera,
-      status: "completed",
+      status: "pending" as const,
       link: "/partner/dashboard/settings",
     },
     {
@@ -29,23 +42,33 @@ export default function OnboardingProgress() {
       title: "Add Bank Account",
       description: "Set up your payout method to receive earnings",
       icon: CreditCard,
-      status: "current",
-      link: "/partner/dashboard/finance",
+      status: "pending" as const,
+      link: "/partner/dashboard/finance/settings",
     },
     {
       id: 4,
       title: "List First Property",
       description: "Create your first listing and start hosting",
       icon: Building,
-      status: "pending",
+      status: "pending" as const,
       link: "/partner/dashboard/listings",
     },
   ];
 
+  // Map icons to backend step data if needed, or just use IDs
+  const steps = initialSteps ? initialSteps.map(s => {
+    const defaultStep = defaultSteps.find(ds => ds.id === s.id);
+    return {
+      ...defaultStep,
+      ...s,
+      icon: defaultStep?.icon || User // Fallback icon
+    };
+  }) : defaultSteps;
+
   const completedSteps = steps.filter((s) => s.status === "completed").length;
   const progress = (completedSteps / steps.length) * 100;
 
-  if (isDismissed || progress === 100) return null;
+  if (isDismissed || completedSteps === steps.length) return null;
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 mb-6 relative overflow-hidden">
@@ -83,38 +106,63 @@ export default function OnboardingProgress() {
           {steps.map((step) => {
             const isCompleted = step.status === "completed";
             const isCurrent = step.status === "current";
-            const Icon = step.icon;
+            const isInReview = step.status === "in_review";
+            const isPending = step.status === "pending";
 
             return (
               <Link 
-                href={step.link}
+                href={step.link || "#"}
                 key={step.id}
+                onClick={(e) => {
+                  if (isPending || isCompleted) {
+                    e.preventDefault(); // Don't allow clicking completed or pending
+                  }
+                }}
                 className={`flex items-start gap-4 p-4 rounded-xl border transition-all ${
                   isCompleted 
-                    ? "bg-gray-50 dark:bg-slate-700/50 border-gray-100 dark:border-slate-700 opacity-70" 
+                    ? "bg-gray-50/50 dark:bg-slate-800/50 border-gray-100 dark:border-slate-700 opacity-60 cursor-default" 
                     : isCurrent
-                    ? "bg-white dark:bg-slate-800 border-primary/30 ring-1 ring-primary/10 shadow-sm"
-                    : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 opacity-60"
+                      ? "bg-white dark:bg-slate-800 border-primary shadow-lg shadow-primary/5 cursor-pointer hover:border-primary/50"
+                      : isInReview
+                        ? "bg-amber-50/30 dark:bg-amber-500/5 border-amber-200 dark:border-amber-900/50 cursor-default"
+                        : "bg-gray-50/50 dark:bg-slate-800/50 border-gray-100 dark:border-slate-700 opacity-40 cursor-default"
                 }`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                   isCompleted 
-                    ? "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-500" 
+                    ? "bg-primary text-white" 
                     : isCurrent
-                    ? "bg-primary/10 text-primary"
-                    : "bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500"
+                      ? "bg-primary/10 text-primary"
+                      : isInReview
+                        ? "bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
+                        : "bg-gray-100 text-gray-400 dark:bg-slate-700 dark:text-slate-500"
                 }`}>
-                  {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                  {isCompleted ? (
+                    <Check className="w-5 h-5" />
+                  ) : (
+                    <step.icon className="w-5 h-5" />
+                  )}
                 </div>
+
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-sm font-semibold ${isCompleted ? "text-gray-600 dark:text-slate-400 line-through" : "text-gray-900 dark:text-white"}`}>
-                    {step.title}
-                  </h4>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 line-clamp-2">
-                    {step.description}
+                  <div className="flex items-center gap-2">
+                    <h4 className={`text-sm font-bold ${isCompleted ? "text-gray-500 dark:text-slate-400" : "text-gray-900 dark:text-white"}`}>
+                      {step.title}
+                    </h4>
+                    {isInReview && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                        In Review
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs mt-0.5 line-clamp-1 ${isCompleted ? "text-gray-400 dark:text-slate-500" : "text-gray-500 dark:text-slate-400"}`}>
+                    {isInReview ? "Our team is reviewing your information..." : step.description}
                   </p>
                 </div>
-                {isCurrent && <ChevronRight className="w-4 h-4 text-primary mt-1" />}
+
+                {!isCompleted && !isPending && !isInReview && (
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                )}
               </Link>
             );
           })}

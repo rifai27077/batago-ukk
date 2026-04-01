@@ -162,28 +162,63 @@ func GetDashboardStats(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
 
 	var partner models.Partner
-	if err := database.DB.Where("user_id = ?", userID).First(&partner).Error; err != nil {
+	if err := database.DB.Preload("User").Where("user_id = ?", userID).First(&partner).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{"data": gin.H{
 			"bookings":        gin.H{"total": 0, "trend": 0},
 			"revenue":         gin.H{"total": 0, "trend": 0},
 			"occupancy":       gin.H{"rate": 0, "trend": 0},
 			"rating":          gin.H{"average": 0, "count": 0, "trend": 0},
 			"recent_activity": []gin.H{},
+			"onboarding":      []gin.H{},
 		}})
 		return
 	}
 
-	// Total bookings
+	// 1. Bookings Statistics & Trend
 	var totalBookings int64
 	database.DB.Model(&models.Booking{}).Where("partner_id = ?", partner.ID).Count(&totalBookings)
 
-	// Total revenue (from paid bookings)
+	now := time.Now()
+	sevenDaysAgo := now.AddDate(0, 0, -7)
+	fourteenDaysAgo := now.AddDate(0, 0, -14)
+
+	var last7DaysBookings int64
+	database.DB.Model(&models.Booking{}).Where("partner_id = ? AND created_at >= ?", partner.ID, sevenDaysAgo).Count(&last7DaysBookings)
+
+	var prev7DaysBookings int64
+	database.DB.Model(&models.Booking{}).Where("partner_id = ? AND created_at >= ? AND created_at < ?", partner.ID, fourteenDaysAgo, sevenDaysAgo).Count(&prev7DaysBookings)
+
+	bookingTrend := 0
+	if prev7DaysBookings > 0 {
+		bookingTrend = int(float64(last7DaysBookings-prev7DaysBookings) / float64(prev7DaysBookings) * 100)
+	} else if last7DaysBookings > 0 {
+		bookingTrend = 100
+	}
+
+	// 2. Revenue Statistics & Trend
 	var totalRevenue float64
 	database.DB.Model(&models.Booking{}).
 		Where("partner_id = ? AND payment_status = ?", partner.ID, models.PaymentStatusPaid).
 		Select("COALESCE(SUM(total_amount), 0)").Scan(&totalRevenue)
 
-	// Rating: average + count from reviews linked to partner bookings
+	var last7DaysRevenue float64
+	database.DB.Model(&models.Booking{}).
+		Where("partner_id = ? AND payment_status = ? AND created_at >= ?", partner.ID, models.PaymentStatusPaid, sevenDaysAgo).
+		Select("COALESCE(SUM(total_amount), 0)").Scan(&last7DaysRevenue)
+
+	var prev7DaysRevenue float64
+	database.DB.Model(&models.Booking{}).
+		Where("partner_id = ? AND payment_status = ? AND created_at >= ? AND created_at < ?", partner.ID, models.PaymentStatusPaid, fourteenDaysAgo, sevenDaysAgo).
+		Select("COALESCE(SUM(total_amount), 0)").Scan(&prev7DaysRevenue)
+
+	revenueTrend := 0
+	if prev7DaysRevenue > 0 {
+		revenueTrend = int((last7DaysRevenue - prev7DaysRevenue) / prev7DaysRevenue * 100)
+	} else if last7DaysRevenue > 0 {
+		revenueTrend = 100
+	}
+
+	// 3. Rating & Reviews
 	var bookingIDs []uint
 	database.DB.Model(&models.Booking{}).Where("partner_id = ?", partner.ID).Pluck("id", &bookingIDs)
 
@@ -195,14 +230,18 @@ func GetDashboardStats(c *gin.Context) {
 			Select("COALESCE(AVG(rating), 0)").Scan(&avgRating)
 	}
 
-	// Occupancy: count of active/confirmed bookings vs total listings
+	// 4. Occupancy Rate
 	var confirmedBookings int64
 	database.DB.Model(&models.Booking{}).
 		Where("partner_id = ? AND booking_status IN ?", partner.ID, []string{"CONFIRMED", "CHECKED_IN"}).
 		Count(&confirmedBookings)
 
 	var totalListings int64
-	database.DB.Model(&models.Hotel{}).Where("partner_id = ?", partner.ID).Count(&totalListings)
+	if partner.Type == "airline" {
+		database.DB.Model(&models.Flight{}).Where("partner_id = ?", partner.ID).Count(&totalListings)
+	} else {
+		database.DB.Model(&models.Hotel{}).Where("partner_id = ?", partner.ID).Count(&totalListings)
+	}
 
 	occupancyRate := 0.0
 	if totalListings > 0 {
@@ -212,7 +251,7 @@ func GetDashboardStats(c *gin.Context) {
 		}
 	}
 
-	// Recent activity: latest 5 bookings
+	// 5. Recent Activity
 	recentBookings := []models.Booking{}
 	database.DB.Where("partner_id = ?", partner.ID).
 		Preload("User").Order("created_at DESC").Limit(5).Find(&recentBookings)
@@ -223,17 +262,15 @@ func GetDashboardStats(c *gin.Context) {
 		if b.User.Name != "" {
 			guestName = b.User.Name
 		}
-
 		timeAgo := formatTimeAgo(b.CreatedAt)
-
 		actType := "booking"
-		title := "Booking baru"
+		title := "New booking"
 		desc := guestName + " — " + b.BookingCode
 
 		if b.PaymentStatus == models.PaymentStatusPaid {
 			actType = "payment"
-			title = "Pembayaran diterima"
-			desc = "Rp " + formatAmount(b.TotalAmount) + " dari " + guestName
+			title = "Payment received"
+			desc = "Rp " + formatAmount(b.TotalAmount) + " from " + guestName
 		}
 
 		recentActivity = append(recentActivity, gin.H{
@@ -244,26 +281,75 @@ func GetDashboardStats(c *gin.Context) {
 		})
 	}
 
-	stats := gin.H{
-		"bookings": gin.H{
-			"total": totalBookings,
-			"trend": 0,
-		},
-		"revenue": gin.H{
-			"total": totalRevenue,
-			"trend": 0,
-		},
-		"occupancy": gin.H{
-			"rate":  int(occupancyRate),
-			"trend": 0,
-		},
-		"rating": gin.H{
-			"average": float64(int(avgRating*10)) / 10, // round to 1 decimal
-			"count":   reviewCount,
-			"trend":   0,
-		},
-		"recent_activity": recentActivity,
+	// 6. Onboarding Steps
+	onboarding := []gin.H{}
+
+	// Step 1: Complete Profile
+	// Check if User.Name and CompanyName are filled
+	profileStatus := "current"
+	if partner.User.Name != "" && partner.CompanyName != "" {
+		profileStatus = "completed"
+	}
+	onboarding = append(onboarding, gin.H{
+		"id":     1,
+		"title":  "Complete Profile",
+		"status": profileStatus,
+	})
+
+	// Step 2: Verify Identity
+	// Check if Partner.Status is approved
+	identityStatus := "pending"
+	if profileStatus == "completed" {
+		if partner.Status == models.PartnerStatusApproved {
+			identityStatus = "completed"
+		} else if partner.Status == models.PartnerStatusInReview {
+			identityStatus = "in_review"
+		} else {
+			identityStatus = "current"
+		}
+	}
+	onboarding = append(onboarding, gin.H{
+		"id":     2,
+		"title":  "Verify Identity",
+		"status": identityStatus,
+	})
+
+	// Check Bank Account
+	var bankAccount models.BankAccount
+	if err := database.DB.Where("partner_id = ?", partner.ID).First(&bankAccount).Error; err == nil {
+		onboarding = append(onboarding, gin.H{"id": 3, "title": "Add Bank Account", "status": "completed"})
+	} else {
+		onboarding = append(onboarding, gin.H{"id": 3, "title": "Add Bank Account", "status": "current"})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": stats})
+	// Check First Listing
+	if totalListings > 0 {
+		onboarding = append(onboarding, gin.H{"id": 4, "title": "List First Property/Route", "status": "completed"})
+	} else {
+		onboarding = append(onboarding, gin.H{"id": 4, "title": "List First Property/Route", "status": "pending"})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"bookings": gin.H{
+				"total": totalBookings,
+				"trend": bookingTrend,
+			},
+			"revenue": gin.H{
+				"total": totalRevenue,
+				"trend": revenueTrend,
+			},
+			"occupancy": gin.H{
+				"rate":  int(occupancyRate),
+				"trend": 0,
+			},
+			"rating": gin.H{
+				"average": float64(int(avgRating*10)) / 10,
+				"count":   reviewCount,
+				"trend":   0,
+			},
+			"recent_activity": recentActivity,
+			"onboarding":      onboarding,
+		},
+	})
 }

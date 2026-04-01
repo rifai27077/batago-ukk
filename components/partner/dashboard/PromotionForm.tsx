@@ -54,6 +54,7 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
   const [availableListings, setAvailableListings] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: "",
+    code: "",
     type: "flash_sale",
     discount: 25,
     startDate: "",
@@ -62,6 +63,18 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
     minStay: 1,
     autoApply: true,
   });
+
+  const defaultFormData = {
+    name: "",
+    code: "",
+    type: "flash_sale",
+    discount: 25,
+    startDate: "",
+    endDate: "",
+    listings: [] as string[],
+    minStay: 1,
+    autoApply: true,
+  };
 
   useEffect(() => {
     async function fetchListings() {
@@ -75,6 +88,11 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
     }
     if (isOpen) {
       fetchListings();
+      // Reset form when opening without edit data
+      if (!initialData) {
+        setFormData({ ...defaultFormData });
+        setStep(1);
+      }
     }
   }, [isOpen]);
 
@@ -148,15 +166,36 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
                   </button>
                 ))}
               </div>
-              <div className="pt-4">
-                <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Campaign Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Summer Special 2026"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none transition-all dark:text-white"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Campaign Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Summer Special 2026"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none transition-all dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 dark:text-slate-200 mb-2 flex justify-between">
+                    Promo Code
+                    <button 
+                      type="button"
+                      onClick={() => setFormData({ ...formData, code: Math.random().toString(36).substring(2, 8).toUpperCase() })}
+                      className="text-[10px] text-primary hover:underline font-medium"
+                    >
+                      Randomize
+                    </button>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SUMMER26"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                    className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none transition-all dark:text-white font-mono"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -271,11 +310,11 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
           </button>
           
           <button 
-            disabled={step === 1 && !formData.name}
+            disabled={step === 1 && (!formData.name || !formData.code)}
             onClick={step === 3 ? () => onSave(formData) : handleNext}
             className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-6 py-2.5 rounded-xl transition-all shadow-sm shadow-primary/20"
           >
-            {step === 3 ? "Launch Promotion" : "Next Step"}
+            {step === 3 ? (initialData ? "Update Promotion" : "Launch Promotion") : "Next Step"}
             {step < 3 && <ChevronRight className="w-4 h-4" />}
             {step === 3 && <CheckCircle2 className="w-4 h-4" />}
           </button>

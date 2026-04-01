@@ -17,8 +17,8 @@ const periods = ["Monthly", "Weekly"] as const;
 type Period = typeof periods[number];
 
 const formatCurrency = (value: number) => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}jt`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}rb`;
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
   return value.toString();
 };
 
@@ -66,7 +66,7 @@ export default function RevenueChart({ data: initialData }: RevenueChartProps) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Overview</h3>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Pendapatan 6 bulan terakhir</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Revenue over the last 6 months</p>
         </div>
         <div className="flex bg-gray-100 dark:bg-slate-700 rounded-xl p-1">
           {periods.map((p) => (

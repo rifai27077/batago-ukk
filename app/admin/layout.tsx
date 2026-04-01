@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getProfile } from "@/lib/api";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import { ThemeProvider } from "@/components/partner/dashboard/ThemeProvider";
@@ -8,6 +10,46 @@ import { ThemeProvider } from "@/components/partner/dashboard/ThemeProvider";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const token = localStorage.getItem("batago_token");
+        if (!token) {
+          router.push("/login?callbackUrl=/admin");
+          return;
+        }
+
+        const res = await getProfile();
+        if (!res.user) {
+          router.push("/login?callbackUrl=/admin");
+          return;
+        }
+
+        if (res.user.role !== "ADMIN") {
+          router.push("/");
+          return;
+        }
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Admin auth check failed", err);
+        router.push("/login?callbackUrl=/admin");
+      }
+    }
+
+    checkAuth();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <ThemeProvider>

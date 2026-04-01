@@ -73,26 +73,53 @@ export default function BookingsPage() {
             };
             const createdDate = new Date(b.CreatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
             if (b.type === "flight") {
+              const f = b.flight_booking;
+              let route = "-";
+              let flightNumber = b.booking_code;
+              let dateStr = createdDate;
+              let classStr = "Economy";
+              
+              if (f && f.flight) {
+                 route = `${f.flight.departure_airport?.code || '?'} - ${f.flight.arrival_airport?.code || '?'}`;
+                 flightNumber = f.flight.flight_number || flightNumber;
+                 if (f.flight.departure_time) {
+                    dateStr = new Date(f.flight.departure_time).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                 }
+                 classStr = f.class || classStr;
+              }
+
               return {
                 id: b.booking_code,
                 type: "airline" as const,
                 passenger: b.user?.name || "Guest",
-                flightNumber: b.booking_code,
-                route: "-",
-                date: createdDate,
-                seatClass: "Economy",
+                flightNumber,
+                route,
+                date: dateStr,
+                seatClass: classStr,
                 status: statusMap[b.booking_status] || "pending",
                 amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
                 createdAt: createdDate,
               };
             }
+            
+            const h = b.hotel_booking;
+            let propertyName = "-";
+            let checkInStr = createdDate;
+            let checkOutStr = "-";
+
+            if (h) {
+               propertyName = h.room_type?.hotel?.name || "-";
+               if (h.check_in) checkInStr = new Date(h.check_in).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+               if (h.check_out) checkOutStr = new Date(h.check_out).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+            }
+
             return {
               id: b.booking_code,
               type: "hotel" as const,
               guest: b.user?.name || "Guest",
-              property: "-",
-              checkIn: createdDate,
-              checkOut: "-",
+              property: propertyName,
+              checkIn: checkInStr,
+              checkOut: checkOutStr,
               status: statusMap[b.booking_status] || "pending",
               amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
               createdAt: createdDate,
@@ -200,7 +227,7 @@ export default function BookingsPage() {
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Tabs */}
-          <div className="flex overflow-x-auto bg-gray-100 dark:bg-slate-900 rounded-xl p-1 flex-shrink-0 no-scrollbar">
+          <div className="flex overflow-x-auto bg-gray-100 dark:bg-slate-900 rounded-xl p-1 shrink-0 no-scrollbar">
             {tabs.map((tab) => (
               <button
                 key={tab.value}
@@ -290,7 +317,7 @@ export default function BookingsPage() {
                     <td className="px-5 py-3.5 text-center">
                       <Link
                         href={`/partner/dashboard/bookings/${booking.id}`}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors shrink-0"
                       >
                         <Eye className="w-4 h-4" />
                       </Link>
@@ -323,7 +350,7 @@ export default function BookingsPage() {
                   )}
                   <p className="text-[11px] text-gray-400 font-mono mt-0.5">#{booking.id}</p>
                 </div>
-                <div className="text-right ml-4 flex-shrink-0">
+                <div className="text-right ml-4 shrink-0">
                   <p className="font-semibold text-sm text-gray-800 dark:text-slate-200">{booking.amount}</p>
                   <StatusBadge status={booking.status} className="mt-1" />
                 </div>

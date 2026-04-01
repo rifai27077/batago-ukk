@@ -83,8 +83,14 @@ Table hotels {
   city_id int [ref: > cities.id]
   description text
   address text
+  type varchar
+  base_price decimal
+  room_count int
   rating decimal
   total_reviews int
+  latitude decimal
+  longitude decimal
+  status varchar
 }
 
 Table room_types {

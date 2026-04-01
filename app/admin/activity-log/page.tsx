@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { 
   Search, 
   Filter, 
@@ -16,8 +16,8 @@ import Pagination from "@/components/partner/dashboard/Pagination";
 
 interface ActivityLog {
   id: number;
-  adminName: string;
-  adminRole: string;
+  admin_name: string;
+  admin_role: string;
   action: string;
   target: string;
   category: "partner" | "user" | "finance" | "content" | "system";
@@ -25,18 +25,7 @@ interface ActivityLog {
   status: "success" | "warning" | "error";
 }
 
-const mockLogs: ActivityLog[] = [
-  { id: 1, adminName: "Super Admin", adminRole: "Super Admin", action: "Approved Partner", target: "Swiss-Belhotel Harbour Bay", category: "partner", timestamp: "17 Feb 2026, 14:20", status: "success" },
-  { id: 2, adminName: "Lia Finance", adminRole: "Finance", action: "Processed Payout", target: "Citilink Indonesia", category: "finance", timestamp: "17 Feb 2026, 11:45", status: "success" },
-  { id: 3, adminName: "Budi Support", adminRole: "Support", action: "Suspended User", target: "Dewi Lestari", category: "user", timestamp: "17 Feb 2026, 09:12", status: "warning" },
-  { id: 4, adminName: "Super Admin", adminRole: "Super Admin", action: "Updated Commission", target: "Airline Default (8%)", category: "finance", timestamp: "16 Feb 2026, 16:30", status: "success" },
-  { id: 5, adminName: "Doni Content", adminRole: "Content", action: "Published Article", target: "Top 10 Batam Destinations", category: "content", timestamp: "16 Feb 2026, 10:05", status: "success" },
-  { id: 6, adminName: "Super Admin", adminRole: "Super Admin", action: "Rejected Partner", target: "Unknown Villa Express", category: "partner", timestamp: "15 Feb 2026, 15:40", status: "error" },
-  { id: 7, adminName: "Lia Finance", adminRole: "Finance", action: "Approved Refund", target: "BG-240214-007", category: "finance", timestamp: "15 Feb 2026, 13:22", status: "success" },
-  { id: 8, adminName: "Budi Support", adminRole: "Support", action: "Resolved Dispute", target: "BG-240214-007", category: "user", timestamp: "15 Feb 2026, 12:15", status: "success" },
-];
-
-const categoryColors = {
+const categoryColors: Record<string, string> = {
   partner: "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10",
   user: "text-blue-500 bg-blue-50 dark:bg-blue-500/10",
   finance: "text-amber-500 bg-amber-50 dark:bg-amber-500/10",
@@ -46,23 +35,49 @@ const categoryColors = {
 
 export default function AdminActivityLogPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const filteredLogs = useMemo(() => {
-    return mockLogs.filter((log) => {
-      const matchesSearch = 
-        log.adminName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.target.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = categoryFilter === "all" || log.category === categoryFilter;
-      return matchesSearch && matchesCategory;
-    });
-  }, [searchQuery, categoryFilter]);
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      const api = await import("@/lib/api");
+      const res = await api.getAdminActivityLog({
+        search: searchQuery,
+        category: categoryFilter,
+        page: currentPage,
+        limit: itemsPerPage
+      });
+      if (res.data) {
+        setLogs(res.data as ActivityLog[]);
+        setTotal(res.meta.total);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const paginatedLogs = filteredLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  useEffect(() => {
+    fetchLogs();
+  }, [searchQuery, categoryFilter, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(total / itemsPerPage);
+
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchQuery(searchInput);
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   return (
     <div className="space-y-6">
@@ -87,8 +102,8 @@ export default function AdminActivityLogPage() {
           <input 
             type="text" 
             placeholder="Search by admin, action, or target..." 
-            value={searchQuery} 
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput} 
+            onChange={(e) => setSearchInput(e.target.value)}
             className="bg-transparent text-sm text-gray-700 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 outline-none w-full" 
           />
         </div>
@@ -96,7 +111,7 @@ export default function AdminActivityLogPage() {
           <Filter className="w-4 h-4 text-gray-400" />
           <select 
             value={categoryFilter} 
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
             className="bg-transparent text-sm text-gray-700 dark:text-slate-200 outline-none cursor-pointer"
           >
             <option value="all">All Categories</option>
@@ -124,30 +139,39 @@ export default function AdminActivityLogPage() {
               </tr>
             </thead>
             <tbody>
-              {paginatedLogs.map((log) => (
-                <tr key={log.id} className="border-b border-gray-50 dark:border-slate-700/50 last:border-0 hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors">
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
-                        <UserIcon className="w-4 h-4 text-gray-400" />
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-gray-500">Loading activity logs...</td>
+                </tr>
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-gray-500">No activity logs found.</td>
+                </tr>
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} className="border-b border-gray-50 dark:border-slate-700/50 last:border-0 hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
+                          <UserIcon className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white leading-none">{log.admin_name}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">{log.admin_role}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white leading-none">{log.adminName}</p>
-                        <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">{log.adminRole}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 font-medium text-gray-800 dark:text-slate-200">
-                    {log.action}
-                  </td>
-                  <td className="px-5 py-4 text-gray-500 dark:text-slate-400">
-                    {log.target}
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${categoryColors[log.category]}`}>
-                      {log.category}
-                    </span>
-                  </td>
+                    </td>
+                    <td className="px-5 py-4 font-medium text-gray-800 dark:text-slate-200">
+                      {log.action}
+                    </td>
+                    <td className="px-5 py-4 text-gray-500 dark:text-slate-400">
+                      {log.target}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${categoryColors[log.category]}`}>
+                        {log.category}
+                      </span>
+                    </td>
                   <td className="px-5 py-4 text-gray-500 dark:text-slate-400">
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
@@ -162,7 +186,7 @@ export default function AdminActivityLogPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
@@ -170,7 +194,7 @@ export default function AdminActivityLogPage() {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-          totalItems={filteredLogs.length}
+          totalItems={total}
           itemsPerPage={itemsPerPage}
           onItemsPerPageChange={(val) => { setItemsPerPage(val); setCurrentPage(1); }}
         />

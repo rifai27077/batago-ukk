@@ -6,36 +6,32 @@ import { useTheme } from "./ThemeProvider";
 import { useDateRange } from "./DateRangeContext";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 import GlobalSearch from "@/components/GlobalSearch";
-import { logout, getProfile, AuthResponse } from "@/lib/api";
+import { logout, getProfile, AuthResponse, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, Notification as ApiNotification } from "@/lib/api";
+import { formatDistanceToNow } from "date-fns";
+// Remove Indonesian locale
 
 interface TopBarProps {
   onMenuToggle: () => void;
 }
 
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  time: string;
-  unread: boolean;
-}
-
-const initialNotifications: Notification[] = [
-  { id: 1, title: "Booking baru masuk", message: "Ahmad R. — Deluxe Room, 20-22 Feb", time: "5 menit lalu", unread: true },
-  { id: 2, title: "Ulasan baru", message: "⭐⭐⭐⭐⭐ dari Budi P.", time: "1 jam lalu", unread: true },
-  { id: 3, title: "Pembayaran diproses", message: "Rp 3.200.000 telah ditransfer", time: "3 jam lalu", unread: false },
-  { id: 4, title: "Listing perlu update", message: "Suite Room belum punya foto", time: "1 hari lalu", unread: false },
-];
-
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { partnerType, setPartnerType } = usePartner();
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
   const [userData, setUserData] = useState<AuthResponse["user"] | null>(null);
+
+  const fetchNotifs = async () => {
+    try {
+      const res = await getNotifications();
+      setNotifications(res.data);
+    } catch (error) {
+      console.error("Failed to fetch notifications", error);
+    }
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -47,18 +43,33 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       }
     };
     fetchUser();
+    fetchNotifs();
+    
+    // Refresh notifications every minute
+    const interval = setInterval(fetchNotifs, 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAsRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
-    );
+  const markAsRead = async (id: number) => {
+    try {
+      await markNotificationAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch (error) {
+      console.error("Failed to mark notification as read", error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  const markAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (error) {
+      console.error("Failed to mark all notifications as read", error);
+    }
   };
 
   // Close dropdowns on outside click
@@ -195,19 +206,21 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   notifications.map((notif) => (
                     <button
                       key={notif.id}
-                      onClick={() => markAsRead(notif.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors border-b border-gray-50 dark:border-slate-700 last:border-0 ${notif.unread ? "bg-primary/[0.03]" : ""}`}
+                      onClick={() => !notif.read && markAsRead(notif.id)}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors border-b border-gray-50 dark:border-slate-700 last:border-0 ${!notif.read ? "bg-primary/3" : ""}`}
                     >
                       <div className="flex items-start gap-3">
-                        {notif.unread ? (
+                        {!notif.read ? (
                           <span className="w-2 h-2 bg-primary rounded-full mt-1.5 shrink-0" />
                         ) : (
                           <span className="w-2 h-2 bg-transparent rounded-full mt-1.5 shrink-0" />
                         )}
                         <div>
-                          <p className={`text-sm font-semibold ${notif.unread ? "text-gray-800 dark:text-slate-200" : "text-gray-500 dark:text-slate-400"}`}>{notif.title}</p>
+                          <p className={`text-sm font-semibold ${!notif.read ? "text-gray-800 dark:text-slate-200" : "text-gray-500 dark:text-slate-400"}`}>{notif.title}</p>
                           <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{notif.message}</p>
-                          <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">{notif.time}</p>
+                          <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
+                            {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                          </p>
                         </div>
                       </div>
                     </button>
@@ -227,7 +240,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             onClick={() => { setShowProfile(!showProfile); setShowNotif(false); }}
             className="flex items-center gap-2 p-1.5 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-teal-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-linear-to-br from-primary to-teal-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
               {userData?.name ? userData.name.charAt(0) : <User className="w-4 h-4" />}
             </div>
             <div className="hidden md:block text-left">

@@ -60,6 +60,7 @@ type RoomAvailability struct {
 	Date           time.Time `gorm:"type:date" json:"date"`
 	AvailableRooms int       `json:"available_rooms"`
 	PriceOverride  *float64  `gorm:"type:decimal(15,2)" json:"price_override"`
+	Status         string    `gorm:"type:varchar(50);default:'available'" json:"status"`
 }
 
 type HotelBooking struct {

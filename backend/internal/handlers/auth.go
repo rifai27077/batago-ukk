@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -16,11 +17,14 @@ import (
 
 const charset = "0123456789"
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func GenerateVerificationCode() string {
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, 6)
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
 }
@@ -232,6 +236,7 @@ func GetProfile(c *gin.Context) {
 		partnerStatus = string(partner.Status)
 		partnerCompanyName = partner.CompanyName
 		partnerType = string(partner.Type)
+		partnerAddress = partner.Address
 
 		// Sync Role if it's out of sync (Fail-safe)
 		if partner.Status == models.PartnerStatusApproved && user.Role != models.RolePartner {
@@ -302,9 +307,19 @@ func UpdateProfile(c *gin.Context) {
 		if input.CompanyType != "" {
 			partner.Type = models.PartnerType(input.CompanyType)
 		}
-		// partner.Address = input.Address // Add this if column exists
+		if input.Address != "" {
+			partner.Address = input.Address
+		}
 		database.DB.Save(&partner)
 	}
+
+	// Create a notification for the profile update
+	database.DB.Create(&models.Notification{
+		UserID:  user.ID,
+		Type:    models.NotificationTypeSuccess,
+		Title:   "Profile Updated",
+		Message: "Your profile information and settings have been successfully updated.",
+	})
 
 	avatarURL := user.AvatarURL
 	if avatarURL == "" {
@@ -321,8 +336,52 @@ func UpdateProfile(c *gin.Context) {
 			"phone":      user.Phone,
 			"avatar_url": avatarURL,
 			"created_at": user.CreatedAt,
+			"partner_company_name": partner.CompanyName,
+			"partner_type":         partner.Type,
+			"partner_address":      partner.Address,
 		},
 	})
+}
+
+type UpdatePasswordInput struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
+}
+
+func UpdatePassword(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	var input UpdatePasswordInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid current password"})
+		return
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		return
+	}
+
+	user.Password = string(hashedPassword)
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
 }
 
 func UploadAvatar(c *gin.Context) {
@@ -347,9 +406,12 @@ func UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	// Use full URL if possible, or relative to backend root
-	// Assuming backend runs on :8080
-	avatarURL := "http://localhost:8080/uploads/" + filename
+	// Use full URL with dynamic base
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	avatarURL := fmt.Sprintf("%s://%s/uploads/%s", scheme, c.Request.Host, filename)
 
 	// Update user avatar_url
 	var user models.User

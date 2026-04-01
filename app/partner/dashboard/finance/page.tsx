@@ -13,7 +13,8 @@ import {
 } from "recharts";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
-import { getPartnerFinance } from "@/lib/api";
+import { getPartnerFinance, getPayoutSettings, updatePayoutSettings, requestEarlyPayout } from "@/lib/api";
+import PayoutSettingsModal from "@/components/partner/dashboard/PayoutSettingsModal";
 
 
 
@@ -51,10 +52,22 @@ export default function FinancePage() {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Payout State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [payoutSettings, setPayoutSettings] = useState<any>(null);
+
   useEffect(() => {
     async function fetchFinance() {
       try {
-        const res = await getPartnerFinance({ page: 1, limit: 10 });
+        const [res, settingsRes] = await Promise.all([
+          getPartnerFinance({ page: 1, limit: 10 }),
+          getPayoutSettings()
+        ]);
+        
+        if (settingsRes) {
+          setPayoutSettings(settingsRes);
+        }
+
         if (res.summary) {
           const fmt = (v: number) => {
             if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)}B`;
@@ -78,10 +91,14 @@ export default function FinancePage() {
           }));
           setTransactions(mapped);
         }
-        // Mocking some revenue chart data based on total if unavailable
-        setRevenueData([
-          { month: "Current", net: res.summary?.net_revenue || 0, commission: res.summary?.commission || 0 }
-        ]);
+        if (res.chart_data) {
+          setRevenueData(res.chart_data);
+        } else {
+          // Fallback if unavailable
+          setRevenueData([
+            { month: "Current", net: res.summary?.net_revenue || 0, commission: res.summary?.commission || 0 }
+          ]);
+        }
       } catch (err) {
         console.error("Failed to fetch finance", err);
       } finally {
@@ -106,6 +123,41 @@ export default function FinancePage() {
   const handleItemsPerPageChange = (num: number) => {
     setItemsPerPage(num);
     setCurrentPage(1);
+  };
+
+// Add these imports at the top
+// import { getPayoutSettings, updatePayoutSettings, requestEarlyPayout } from "@/lib/api";
+// import PayoutSettingsModal from "@/components/partner/dashboard/PayoutSettingsModal";
+
+  const handleSaveSettings = async (data: any) => {
+    try {
+      const res = await updatePayoutSettings(data);
+      if (res.bank_account && res.settings) {
+        setPayoutSettings({ bank_account: res.bank_account, settings: res.settings });
+      }
+    } catch (error) {
+      console.error("Failed to update payout settings:", error);
+      throw error;
+    }
+  };
+
+  const handleEarlyPayout = async () => {
+    if (!payoutSettings?.bank_account) {
+      alert("Please add a bank account first.");
+      return;
+    }
+    const amountPrompt = prompt("Enter amount to withdraw early (Rp):");
+    if (!amountPrompt) return;
+    const amount = parseInt(amountPrompt);
+    if (isNaN(amount) || amount <= 0) return;
+
+    try {
+      const res = await requestEarlyPayout(amount);
+      alert(res.message);
+    } catch (error) {
+      console.error("Failed to request early payout:", error);
+      alert("Failed to request payout.");
+    }
   };
 
   return (
@@ -273,31 +325,48 @@ export default function FinancePage() {
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Payout Settings</h3>
             <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-900 rounded-xl p-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <Building className="w-5 h-5 text-white" />
+              {payoutSettings?.bank_account ? (
+                <div className="flex items-center gap-3 bg-gray-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
+                    <Building className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 truncate">{payoutSettings.bank_account.bank_name}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 truncate">
+                      •••• {payoutSettings.bank_account.account_number.slice(-4)} · {payoutSettings.bank_account.account_holder_name}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">Bank BCA</p>
-                  <p className="text-xs text-gray-500 dark:text-slate-400">****7890 · Ahmad Rifai</p>
+              ) : (
+                <div className="flex items-center gap-3 bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-xl p-3">
+                  <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Building className="w-5 h-5 text-yellow-600 dark:text-yellow-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-400">No Bank Account</p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-500/80">Please add one to receive payouts.</p>
+                  </div>
                 </div>
-              </div>
+              )}
+              
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500 dark:text-slate-400">Schedule</span>
-                  <span className="font-semibold text-gray-800 dark:text-slate-200">Weekly</span>
+                  <span className="font-semibold text-gray-800 dark:text-slate-200">{payoutSettings?.settings?.schedule || "Weekly"}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500 dark:text-slate-400">Min. Payout</span>
-                  <span className="font-semibold text-gray-800 dark:text-slate-200">Rp 500.000</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-slate-400">Next Payout</span>
-                  <span className="font-semibold text-primary">21 Feb 2026</span>
+                  <span className="font-semibold text-gray-800 dark:text-slate-200">
+                    Rp {(payoutSettings?.settings?.threshold_amount || 500000).toLocaleString("id-ID")}
+                  </span>
                 </div>
               </div>
-              <button className="w-full bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 text-sm font-medium py-2.5 rounded-xl transition-colors">
-                Edit Payout Settings
+              
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-full bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 text-sm font-medium py-2.5 rounded-xl transition-colors"
+              >
+                {payoutSettings?.bank_account ? "Edit Payout Settings" : "Setup Payout Settings"}
               </button>
             </div>
           </div>
@@ -305,12 +374,20 @@ export default function FinancePage() {
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
             <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
             <div className="space-y-2">
-              <button className="w-full flex items-center gap-3 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-semibold py-2.5 px-4 rounded-xl transition-colors">
+              <button 
+                onClick={handleEarlyPayout}
+                className="w-full flex items-center gap-3 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-semibold py-2.5 px-4 rounded-xl transition-colors"
+              >
                 <Banknote className="w-4 h-4" /> Request Early Payout
               </button>
-              <button className="w-full flex items-center gap-3 bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 text-sm font-medium py-2.5 px-4 rounded-xl transition-colors">
-                <CreditCard className="w-4 h-4" /> Add Bank Account
-              </button>
+              {!payoutSettings?.bank_account && (
+                <button 
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="w-full flex items-center gap-3 bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 text-sm font-medium py-2.5 px-4 rounded-xl transition-colors"
+                >
+                  <CreditCard className="w-4 h-4" /> Add Bank Account
+                </button>
+              )}
               <button className="w-full flex items-center gap-3 bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-200 text-sm font-medium py-2.5 px-4 rounded-xl transition-colors">
                 <Download className="w-4 h-4" /> Download Tax Report
               </button>
@@ -318,6 +395,13 @@ export default function FinancePage() {
           </div>
         </div>
       </div>
+
+      <PayoutSettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        initialData={payoutSettings}
+        onSave={handleSaveSettings}
+      />
     </div>
   );
 }

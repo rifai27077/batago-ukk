@@ -37,7 +37,7 @@ type Promotion struct {
 	Status    PromotionStatus `gorm:"type:varchar(50);default:active" json:"status"`
 	StartDate time.Time       `json:"start_date"`
 	EndDate   time.Time       `json:"end_date"`
-	Listings  []uint          `gorm:"type:json" json:"listings"` // List of room/route IDs this promo applies to
+	Listings  []uint          `gorm:"serializer:json" json:"listings"` // List of room/route IDs this promo applies to
 	Claims    int             `gorm:"default:0" json:"claims"`
 	Revenue   float64         `gorm:"type:decimal(15,2);default:0" json:"revenue"`
 }

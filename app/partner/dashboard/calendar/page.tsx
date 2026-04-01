@@ -142,10 +142,28 @@ export default function CalendarPage() {
 
     // Find in API bookings
     const booking = apiData?.bookings?.find(b => {
-        const matchDate = b.check_in.startsWith(isoDate) || (isoDate > b.check_in && isoDate < b.check_out);
+        const checkIn = b.hotel_booking?.check_in || b.flight_booking?.flight?.departure_time;
+        const checkOut = b.hotel_booking?.check_out || b.flight_booking?.flight?.arrival_time;
+        
+        if (!checkIn) return false;
+        
+        const inStr = checkIn.substring(0, 10);
+        let outStr = checkOut?.substring(0, 10);
+        
+        // Flight is a single day usually
+        if (!outStr) outStr = inStr;
+
+        const matchDate = inStr === isoDate || (isoDate > inStr && isoDate < outStr);
         if (!matchDate) return false;
+        
         // Bookings can be filtered by listing if we have room/flight info in them
-        // For now we assume if it's the partner's booking, we show it, but we could refine.
+        if (listingId) {
+            if (isHotel) {
+               return b.hotel_booking?.room_type_id === listingId;
+            } else {
+               return b.flight_booking?.flight_id === listingId;
+            }
+        }
         return true;
     });
 

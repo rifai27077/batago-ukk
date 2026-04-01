@@ -50,10 +50,10 @@ export default function DashboardOverview() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold">Selamat Sore, Partner! 👋</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">Welcome back, Partner! 👋</h1>
           </div>
           <p className="text-black dark:text-white/70 text-sm md:text-base max-w-lg">
-            Berikut ringkasan performa bisnis Anda hari ini. Ada <span className="text-primary font-semibold">{stats?.bookings?.trend || 0} booking baru</span> minggu ini.
+            Here is a summary of your business performance. There are <span className="text-primary font-semibold">{stats?.bookings?.trend || 0} new bookings</span> this week.
           </p>
 
           {/* Quick Actions */}
@@ -73,7 +73,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* Onboarding Progress - NEW */}
-      <OnboardingProgress />
+      <OnboardingProgress steps={stats?.onboarding} />
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -104,7 +104,7 @@ export default function DashboardOverview() {
         <StatCard
           title="Avg. Rating"
           value={stats?.rating?.average.toString() || "0"}
-          subtitle={`dari ${stats?.rating?.count || 0} reviews`}
+          subtitle={`from ${stats?.rating?.count || 0} reviews`}
           icon={Star}
           trend={{ value: `${(stats?.rating?.trend ?? 0) > 0 ? "+" : ""}${stats?.rating?.trend ?? 0}`, direction: (stats?.rating?.trend ?? 0) >= 0 ? "up" : "down" }}
           accentColor="bg-primary"
@@ -140,7 +140,7 @@ export default function DashboardOverview() {
             href="/partner/dashboard/bookings"
             className="flex items-center justify-center gap-1 mt-5 text-sm text-primary font-semibold hover:gap-2 transition-all"
           >
-            Lihat Semua <ArrowRight className="w-4 h-4" />
+            View All <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>

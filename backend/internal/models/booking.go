@@ -44,7 +44,9 @@ type Booking struct {
 	BookingStatus BookingStatus `gorm:"type:varchar(50);default:'NEW'" json:"booking_status"`
 	TotalAmount   float64       `gorm:"type:decimal(15,2)" json:"total_amount"`
 	ExpiresAt     time.Time     `json:"expires_at"`
-	Passengers    []Passenger   `gorm:"foreignKey:BookingID" json:"passengers"`
+	Passengers    []Passenger    `gorm:"foreignKey:BookingID" json:"passengers"`
+	HotelBooking  *HotelBooking  `gorm:"foreignKey:BookingID" json:"hotel_booking,omitempty"`
+	FlightBooking *FlightBooking `gorm:"foreignKey:BookingID" json:"flight_booking,omitempty"`
 }
 
 type Payment struct {

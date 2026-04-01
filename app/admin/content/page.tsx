@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MapPin, Image, FileText, Plus, Pencil, Trash2, Globe, Eye } from "lucide-react";
 import AddEditDestinationModal from "@/components/admin/modals/AddEditDestinationModal";
 import AddEditBannerModal from "@/components/admin/modals/AddEditBannerModal";
@@ -65,12 +65,14 @@ const articleStatusColors: Record<string, string> = {
 };
 
 export default function AdminContentPage() {
+
   const [tab, setTab] = useState<"destinations" | "banners" | "articles">("destinations");
+  const [loading, setLoading] = useState(true);
   
   // Data State
-  const [destinations, setDestinations] = useState<Destination[]>(mockDestinations);
-  const [banners, setBanners] = useState<Banner[]>(mockBanners);
-  const [articles, setArticles] = useState<Article[]>(mockArticles);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
 
   // Modal State
   const [destModalOpen, setDestModalOpen] = useState(false);
@@ -80,6 +82,30 @@ export default function AdminContentPage() {
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
   const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      if (tab === "destinations") {
+        const res = await import("@/lib/api").then(m => m.getAdminDestinations());
+        if (res.data) setDestinations(res.data as unknown as Destination[]);
+      } else if (tab === "banners") {
+        const res = await import("@/lib/api").then(m => m.getAdminBanners());
+        if (res.data) setBanners(res.data as unknown as Banner[]);
+      } else {
+        const res = await import("@/lib/api").then(m => m.getAdminArticles());
+        if (res.data) setArticles(res.data as unknown as Article[]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [tab]);
 
   const handleAdd = () => {
     if (tab === "destinations") {
@@ -107,35 +133,65 @@ export default function AdminContentPage() {
     }
   };
 
-  const handleSaveDest = (dest: Destination) => {
-    if (selectedDest) {
-      setDestinations(prev => prev.map(d => d.id === dest.id ? dest : d));
-    } else {
-      setDestinations(prev => [{ ...dest, id: Math.max(...prev.map(p => p.id), 0) + 1 }, ...prev]);
+  const handleSaveDest = async (dest: any) => {
+    try {
+      const api = await import("@/lib/api");
+      if (selectedDest) {
+        await api.updateAdminDestination(selectedDest.id, dest);
+      } else {
+        await api.createAdminDestination(dest);
+      }
+      loadData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleSaveBanner = (banner: Banner) => {
-    if (selectedBanner) {
-      setBanners(prev => prev.map(b => b.id === banner.id ? banner : b));
-    } else {
-      setBanners(prev => [{ ...banner, id: Math.max(...prev.map(p => p.id), 0) + 1 }, ...prev]);
+  const handleSaveBanner = async (banner: any) => {
+    try {
+      const api = await import("@/lib/api");
+      if (selectedBanner) {
+        await api.updateAdminBanner(selectedBanner.id, banner);
+      } else {
+        await api.createAdminBanner(banner);
+      }
+      loadData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleSaveArticle = (article: Article) => {
-    if (selectedArticle) {
-      setArticles(prev => prev.map(a => a.id === article.id ? article : a));
-    } else {
-      setArticles(prev => [{ ...article, id: Math.max(...prev.map(p => p.id), 0) + 1 }, ...prev]);
+  const handleSaveArticle = async (article: any) => {
+    try {
+      const api = await import("@/lib/api");
+      if (selectedArticle) {
+        await api.updateAdminArticle(selectedArticle.id, article);
+      } else {
+        await api.createAdminArticle(article);
+      }
+      loadData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleDelete = (type: string, id: number) => {
+  const handleDelete = async (type: string, id: number) => {
     if (confirm("Are you sure you want to delete this item?")) {
-      if (type === "dest") setDestinations(prev => prev.filter(d => d.id !== id));
-      if (type === "banner") setBanners(prev => prev.filter(b => b.id !== id));
-      if (type === "article") setArticles(prev => prev.filter(a => a.id !== id));
+      try {
+        const api = await import("@/lib/api");
+        if (type === "dest") {
+          await api.deleteAdminDestination(id);
+          setDestinations(prev => prev.filter(d => d.id !== id));
+        } else if (type === "banner") {
+          await api.deleteAdminBanner(id);
+          setBanners(prev => prev.filter(b => b.id !== id));
+        } else if (type === "article") {
+          await api.deleteAdminArticle(id);
+          setArticles(prev => prev.filter(a => a.id !== id));
+        }
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 

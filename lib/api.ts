@@ -53,6 +53,7 @@ export interface AuthResponse {
     avatar_url?: string;
     is_verified: boolean;
     phone: string;
+    role: string;
     partner_status?: string;
     partner_company_name?: string;
     partner_type?: string;
@@ -101,20 +102,39 @@ export async function getProfile() {
   return apiFetch<{ user: AuthResponse["user"] }>("/profile");
 }
 
+export interface Notification {
+  id: number;
+  user_id: number;
+  type: "info" | "promo" | "success";
+  title: string;
+  message: string;
+  read: boolean;
+  link?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function getNotifications() {
-    return apiFetch<{ data: any[] }>("/notifications");
+  return apiFetch<{ data: Notification[] }>("/notifications");
 }
 
 export async function markNotificationAsRead(id: number) {
-    return apiFetch<void>(`/notifications/${id}/read`, { method: "PUT" });
+  return apiFetch<void>(`/notifications/${id}/read`, { method: "PUT" });
 }
 
 export async function markAllNotificationsAsRead() {
-    return apiFetch<void>("/notifications/read-all", { method: "PUT" });
+  return apiFetch<void>("/notifications/read-all", { method: "PUT" });
 }
 
 export async function updateProfile(data: { name?: string; phone?: string; company_name?: string; company_type?: string; address?: string }) {
   return apiFetch<{ message: string; user: AuthResponse["user"] }>("/profile", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePassword(data: { current_password: string; new_password: string }) {
+  return apiFetch<{ message: string }>("/auth/password/update", {
     method: "PUT",
     body: JSON.stringify(data),
   });
@@ -473,6 +493,7 @@ export interface DashboardStats {
   occupancy: { rate: number; trend: number };
   rating: { average: number; count: number; trend: number };
   recent_activity: { title: string; desc: string; time: string; type: string }[];
+  onboarding: { id: number; title: string; status: "completed" | "current" | "pending" | "in_review" }[];
 }
 
 export async function getDashboardStats() {
@@ -491,9 +512,12 @@ export interface PartnerListing {
   images: { url: string; is_primary: boolean }[];
   rooms: number;
   room_count?: number;
+  base_price?: number;
+  city_id?: number;
   occupancy: number;
   status: string;
   type?: string;
+  facilities?: { id: number; name: string }[];
 }
 
 export async function getPartnerListings(params?: { page?: number; limit?: number; search?: string; status?: string; type?: string }) {
@@ -571,6 +595,7 @@ export interface PartnerPromotion {
   name: string;
   type: "flash_sale" | "last_minute" | "early_bird" | "seasonal";
   discount: number;
+  code: string;
   status: "active" | "scheduled" | "paused" | "expired";
   start_date: string;
   end_date: string;
@@ -593,8 +618,11 @@ export async function getPartnerPromotions(params?: { page?: number; limit?: num
       total: number;
       stats?: {
         total_active: number;
+        new_this_week?: number;
         total_claims: number;
+        claims_growth?: number;
         total_revenue: number;
+        revenue_growth?: number;
       };
     };
   }>(
@@ -602,7 +630,7 @@ export async function getPartnerPromotions(params?: { page?: number; limit?: num
   );
 }
 
-export async function createPartnerPromotion(data: { name: string; type: string; discount: number; status?: string; start_date: string; end_date: string; listings?: number[] }) {
+export async function createPartnerPromotion(data: { name: string; code: string; type: string; discount: number; status?: string; start_date: string; end_date: string; listings?: number[] }) {
   return apiFetch<{ message: string; data: PartnerPromotion }>("/partner/promotions", {
     method: "POST",
     body: JSON.stringify(data),
@@ -620,6 +648,19 @@ export async function deletePartnerPromotion(id: number) {
   return apiFetch<{ message: string }>(`/partner/promotions/${id}`, { method: "DELETE" });
 }
 
+// --- Partner Analytics ---
+export interface PartnerAnalyticsResponse {
+  funnel: { name: string; value: number }[];
+  conversion: { month: string; rate: number }[];
+  metric_data: { month: string; value: number }[];
+  demographics: { name: string; value: number; color: string }[];
+  regions: { name: string; value: number }[];
+}
+
+export async function getPartnerAnalytics() {
+  return apiFetch<PartnerAnalyticsResponse>("/partner/insights");
+}
+
 // --- Partner Bookings ---
 export interface PartnerBooking {
   ID: number;
@@ -631,6 +672,20 @@ export interface PartnerBooking {
   expires_at: string;
   CreatedAt: string;
   user: { name: string; email: string };
+  hotel_booking?: {
+    room_type: { name: string; hotel: { name: string } };
+    check_in: string;
+    check_out: string;
+  };
+  flight_booking?: {
+    flight: {
+      flight_number: string;
+      departure_time: string;
+      departure_airport: { code: string };
+      arrival_airport: { code: string };
+    };
+    class: string;
+  };
 }
 
 export async function getPartnerBookings(params?: { page?: number; limit?: number; status?: string; search?: string }) {
@@ -660,7 +715,7 @@ export async function getPartnerReviews(params?: { page?: number; limit?: number
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   return apiFetch<{
-    data: PartnerReview[];
+    data: any[];
     meta: {
       page: number;
       limit: number;
@@ -670,10 +725,17 @@ export async function getPartnerReviews(params?: { page?: number; limit?: number
         response_rate: number;
         positive_sentiment: number;
       };
+      rating_trend?: { month: string; avg: number }[];
+      popular_mentions?: { word: string; count: number; positive: boolean }[];
     };
-  }>(
-    `/partner/reviews?${query.toString()}`
-  );
+  }>(`/partner/reviews?${query.toString()}`);
+}
+
+export async function replyToPartnerReview(reviewId: string, reply: string) {
+  return apiFetch<{ message: string; reply: string }>(`/partner/reviews/${reviewId}/reply`, {
+    method: "POST",
+    body: JSON.stringify({ reply }),
+  });
 }
 
 // --- Partner Finance ---
@@ -685,27 +747,65 @@ export interface PartnerFinanceSummary {
   paid_bookings: number;
 }
 
+export interface FinanceTransaction {
+  ID: number;
+  CreatedAt: string;
+  description: string;
+  gross_amount: number;
+  commission_amount: number;
+  net_amount: number;
+  type: "earning" | "payout" | "refund";
+  booking?: { booking_code: string };
+}
+
 export async function getPartnerFinance(params?: { page?: number; limit?: number }) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
-  return apiFetch<{ summary: PartnerFinanceSummary; chart_data?: any[]; transactions: PartnerBooking[]; meta: { page: number; limit: number; total: number } }>(
+  return apiFetch<{ summary: PartnerFinanceSummary; chart_data?: any[]; transactions: FinanceTransaction[]; meta: { page: number; limit: number; total: number } }>(
     `/partner/finance?${query.toString()}`
   );
 }
 
 
-// --- Partner Analytics ---
-export interface PartnerAnalyticsResponse {
-  funnel: { name: string; value: number }[];
-  metric_data: { month: string; value: number }[];
-  conversion: { month: string; rate: number }[];
-  demographics: { name: string; value: number; color: string }[];
+export interface BankAccount {
+  ID: number;
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string;
 }
 
-export async function getPartnerAnalytics() {
-  return apiFetch<PartnerAnalyticsResponse>("/partner/analytics");
+export interface PayoutSetting {
+  schedule: string;
+  threshold_amount: number;
 }
+
+export async function getPayoutSettings() {
+  return apiFetch<{ bank_account: BankAccount | null; settings: PayoutSetting }>("/partner/finance/settings");
+}
+
+export async function updatePayoutSettings(data: {
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string;
+  schedule: string;
+  threshold_amount: number;
+}) {
+  return apiFetch<{ message: string; bank_account: BankAccount; settings: PayoutSetting }>("/partner/finance/settings", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function requestEarlyPayout(amount: number) {
+  return apiFetch<{ message: string }>("/partner/finance/payout", {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
+}
+
+
+
 
 // --- Partner Staff ---
 export interface PartnerStaff {
@@ -928,4 +1028,212 @@ export async function validatePromoCode(code: string) {
   return apiFetch<{ message: string; discount: number; type: string; name: string }>(
     `/promotions/validate?code=${encodeURIComponent(code)}`
   );
+}
+
+// --- Admin ---
+export async function getAdminStats() {
+  return apiFetch<{
+    stats: {
+      total_users: number;
+      user_change: number;
+      active_partners: number;
+      partner_change: number;
+      total_bookings: number;
+      booking_change: number;
+      total_revenue: number;
+      revenue_change: number;
+    };
+    revenue_trend: { month: string; value: number }[];
+    booking_distribution: { hotels: number; hotel_pct: number; flights: number; flight_pct: number };
+    top_partners: { id: number; name: string; type: string; revenue: number; bookings: number }[];
+    pending_actions: { title: string; desc: string; type: string; time: string }[];
+    recent_bookings: { id: number; booking_code: string; guest: string; partner: string; type: string; amount: number; status: string; date: string }[];
+    quick_stats: { active_hotels: number; active_flights: number };
+  }>("/admin/stats");
+}
+
+export async function getAdminUsers(params?: { search?: string; status?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  return apiFetch<{
+    data: { id: number; name: string; email: string; phone: string; status: string; joined: string; total_bookings: number; total_spent: number }[];
+    meta: { page: number; limit: number; total: number };
+    summary: { total: number; active: number; suspended: number };
+  }>(`/admin/users?${query.toString()}`);
+}
+
+export async function updateUserStatus(id: number, status: string) {
+  return apiFetch<{ message: string }>(`/admin/users/${id}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function getAdminPartners(params?: { search?: string; status?: string; type?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+  if (params?.type) query.set("type", params.type);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  return apiFetch<{
+    data: { id: number; name: string; type: string; status: string; email: string; commission: string; joined: string; total_revenue: number; location: string }[];
+    meta: { page: number; limit: number; total: number; pending_count: number };
+  }>(`/admin/partners?${query.toString()}`);
+}
+
+export async function updatePartnerStatus(id: number, action: string, reason?: string) {
+  return apiFetch<{ message: string }>(`/admin/partners/${id}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ action, reason }),
+  });
+}
+
+export async function getAdminBookings(params?: { search?: string; status?: string; type?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+  if (params?.type) query.set("type", params.type);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  return apiFetch<{
+    data: { id: number; booking_code: string; guest: string; partner: string; type: string; amount: number; commission: number; status: string; date: string }[];
+    meta: { page: number; limit: number; total: number };
+    summary: { confirmed: number; pending: number; cancelled: number; refunded: number; disputed: number };
+  }>(`/admin/bookings?${query.toString()}`);
+}
+
+export async function getAdminFinanceStats() {
+  return apiFetch<{
+    gmv: number;
+    platform_revenue: number;
+    pending_payouts: { amount: number; count: number };
+  }>("/admin/finance/stats");
+}
+
+export async function getAdminPayouts(params?: { page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  return apiFetch<{
+    data: { id: number; partner: string; type: string; amount: number; status: string; date: string }[];
+    meta: { page: number; limit: number; total: number };
+  }>(`/admin/finance/payouts?${query.toString()}`);
+}
+
+export async function processAdminPayout(id: number) {
+  return apiFetch<{ message: string }>(`/admin/finance/payouts/${id}`, { method: "PUT" });
+}
+
+// Admin Notifications
+export async function getAdminNotifications() {
+  return apiFetch<{
+    data: { id: number; title: string; message: string; type: string; importance: string; is_read: boolean; time: string }[];
+  }>("/admin/notifications");
+}
+
+export async function markAdminNotificationsRead() {
+  return apiFetch<{ message: string }>("/admin/notifications/read-all", { method: "PUT" });
+}
+
+export async function deleteAdminNotification(id: number) {
+  return apiFetch<{ message: string }>(`/admin/notifications/${id}`, { method: "DELETE" });
+}
+
+// Admin Content - Destinations
+export async function getAdminDestinations() {
+  return apiFetch<{
+    data: { id: number; name: string; country: string; hotels: number; flights: number; featured: boolean }[];
+  }>("/admin/destinations");
+}
+
+export async function createAdminDestination(payload: { name: string; country: string; featured: boolean; image_url: string }) {
+  return apiFetch<{ data: any }>("/admin/destinations", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateAdminDestination(id: number, payload: Partial<{ name: string; country: string; featured: boolean; image_url: string }>) {
+  return apiFetch<{ data: any }>(`/admin/destinations/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function deleteAdminDestination(id: number) {
+  return apiFetch<{ message: string }>(`/admin/destinations/${id}`, { method: "DELETE" });
+}
+
+// Admin Content - Banners
+export async function getAdminBanners() {
+  return apiFetch<{
+    data: { id: number; title: string; placement: string; status: string; start_date: string; end_date: string; image_url: string }[];
+  }>("/admin/banners");
+}
+
+export async function createAdminBanner(payload: { title: string; placement: string; status: string; start_date: string; end_date: string; image_url: string }) {
+  return apiFetch<{ data: any }>("/admin/banners", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateAdminBanner(id: number, payload: Partial<{ title: string; placement: string; status: string; start_date: string; end_date: string; image_url: string }>) {
+  return apiFetch<{ data: any }>(`/admin/banners/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function deleteAdminBanner(id: number) {
+  return apiFetch<{ message: string }>(`/admin/banners/${id}`, { method: "DELETE" });
+}
+
+// Admin Content - Articles
+export async function getAdminArticles() {
+  return apiFetch<{
+    data: { id: number; title: string; author: string; status: string; date: string; views: number }[];
+  }>("/admin/articles");
+}
+
+export async function createAdminArticle(payload: { title: string; content: string; author: string; status: string }) {
+  return apiFetch<{ data: any }>("/admin/articles", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateAdminArticle(id: number, payload: Partial<{ title: string; content: string; author: string; status: string }>) {
+  return apiFetch<{ data: any }>(`/admin/articles/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function deleteAdminArticle(id: number) {
+  return apiFetch<{ message: string }>(`/admin/articles/${id}`, { method: "DELETE" });
+}
+
+// Admin Accounts
+export async function getAdminAccounts() {
+  return apiFetch<{
+    data: { id: number; name: string; email: string; role: string; last_active: string }[];
+  }>("/admin/accounts");
+}
+
+export async function createAdminAccount(payload: { name: string; email: string; password: string; role?: string }) {
+  return apiFetch<{ data: any }>("/admin/accounts", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function deleteAdminAccount(id: number) {
+  return apiFetch<{ message: string }>(`/admin/accounts/${id}`, { method: "DELETE" });
+}
+
+// Admin Activity Log
+export async function getAdminActivityLog(params?: { search?: string; category?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.category) query.set("category", params.category);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  
+  return apiFetch<{
+    data: { id: number; admin_name: string; admin_role: string; action: string; target: string; category: string; timestamp: string; status: string }[];
+    meta: { page: number; limit: number; total: number };
+  }>(`/admin/activity-log?${query.toString()}`);
+}
+
+// Admin Reports
+export async function getAdminReports() {
+  return apiFetch<{
+    monthly_data: { name: string; revenue: number; bookings: number }[];
+    summary: { total_revenue: number; total_bookings: number; new_users: number; avg_order: number };
+    distribution: { name: string; value: number }[];
+  }>("/admin/reports");
 }

@@ -79,7 +79,6 @@ export default function Header() {
   const navLinks = [
     { name: "Find Flights", href: "/flights", icon: Plane },
     { name: "Find Stays", href: "/stays", icon: Bed },
-    { name: "Promotions", href: "/promotions", icon: Tag },
   ];
 
   // Force dark styling on specific pages (like listing) or when scrolled/mobile menu open
@@ -230,10 +229,14 @@ export default function Header() {
                               <User className="w-4 h-4" />
                               Account Settings
                           </Link>
-                          <Link href="/my-bookings" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg hover:text-primary transition-colors" onClick={() => setIsProfileMenuOpen(false)}>
-                              <FileText className="w-4 h-4" />
-                              My Bookings
-                          </Link>
+                           <Link href="/my-bookings" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg hover:text-primary transition-colors" onClick={() => setIsProfileMenuOpen(false)}>
+                               <FileText className="w-4 h-4" />
+                               My Bookings
+                           </Link>
+                           <Link href="/promotions" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg hover:text-primary transition-colors" onClick={() => setIsProfileMenuOpen(false)}>
+                               <Tag className="w-4 h-4" />
+                               Promotions
+                           </Link>
                            <Link href="/account/security" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg hover:text-primary transition-colors" onClick={() => setIsProfileMenuOpen(false)}>
                               <Settings className="w-4 h-4" />
                               Security & Password
@@ -358,6 +361,16 @@ export default function Header() {
                      <Plane className="w-5 h-5" />
                    </div>
                    My Bookings
+                </Link>
+                <Link
+                  href="/promotions"
+                  className="flex items-center gap-4 text-lg font-semibold text-foreground p-2 hover:bg-gray-50 rounded-lg"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                   <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                     <Tag className="w-5 h-5" />
+                   </div>
+                   Promotions
                 </Link>
                 <Link
                   href="/favourites"

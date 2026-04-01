@@ -25,9 +25,11 @@ interface ListingCardProps {
   selectable?: boolean;
   selected?: boolean;
   onSelect?: (id: string) => void;
+  onEdit?: (listing: Listing) => void;
+  onDelete?: (id: string) => void;
 }
 
-export default function ListingCard({ listing, selectable = false, selected = false, onSelect }: ListingCardProps) {
+export default function ListingCard({ listing, selectable = false, selected = false, onSelect, onEdit, onDelete }: ListingCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +55,7 @@ export default function ListingCard({ listing, selectable = false, selected = fa
           src={listing.image}
           alt={listing.name}
           fill
+          unoptimized={listing.image.includes("localhost") || listing.image.includes("127.0.0.1") || listing.image.includes("uploads/")}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -93,15 +96,15 @@ export default function ListingCard({ listing, selectable = false, selected = fa
               <MoreVertical className="w-4 h-4" />
             </button>
               {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-700 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 overflow-hidden z-20">
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors">
+            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-700 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 overflow-hidden z-20">
+                <Link href={`/partner/dashboard/listings/${listing.id}`} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors">
                   <Eye className="w-4 h-4" /> View
-                </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors">
+                </Link>
+                <button onClick={() => { setMenuOpen(false); onEdit?.(listing); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors">
                   <Pencil className="w-4 h-4" /> Edit
                 </button>
                 <div className="h-px bg-gray-100 dark:bg-slate-600 my-1"></div>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors">
+                <button onClick={() => { setMenuOpen(false); if (confirm(`Delete "${listing.name}"?`)) onDelete?.(listing.id); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors">
                   <Trash2 className="w-4 h-4" /> Remove
                 </button>
               </div>
@@ -153,7 +156,10 @@ export default function ListingCard({ listing, selectable = false, selected = fa
           >
             Manage
           </Link>
-          <button className="flex-1 text-center bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-300 text-sm font-medium py-2 rounded-xl transition-colors">
+          <button 
+            onClick={() => onEdit?.(listing)}
+            className="flex-1 text-center bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-300 text-sm font-medium py-2 rounded-xl transition-colors"
+          >
             Edit
           </button>
         </div>

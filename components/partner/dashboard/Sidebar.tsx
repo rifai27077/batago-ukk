@@ -30,11 +30,11 @@ const navItemsHotel = [
   { label: "Listings", href: "/partner/dashboard/listings", icon: Building2 },
   { label: "Promotions", href: "/partner/dashboard/promotions", icon: Tag },
   { label: "Bookings", href: "/partner/dashboard/bookings", icon: CalendarCheck },
-  { label: "Calendar", href: "/partner/dashboard/calendar", icon: CalendarDays },
+  // { label: "Calendar", href: "/partner/dashboard/calendar", icon: CalendarDays },
   { label: "Finance", href: "/partner/dashboard/finance", icon: Wallet },
   { label: "Reviews", href: "/partner/dashboard/reviews", icon: Star },
   { label: "Analytics", href: "/partner/dashboard/analytics", icon: BarChart3 },
-  { label: "Staff", href: "/partner/dashboard/staff", icon: Users },
+  // { label: "Staff", href: "/partner/dashboard/staff", icon: Users },
   { label: "Settings", href: "/partner/dashboard/settings", icon: Settings },
 ];
 
@@ -48,7 +48,7 @@ const navItemsAirline = [
   { label: "Finance", href: "/partner/dashboard/finance", icon: Wallet },
   { label: "Reviews", href: "/partner/dashboard/reviews", icon: Star },
   { label: "Analytics", href: "/partner/dashboard/analytics", icon: BarChart3 },
-  { label: "Staff", href: "/partner/dashboard/staff", icon: Users },
+  // { label: "Staff", href: "/partner/dashboard/staff", icon: Users },
   { label: "Settings", href: "/partner/dashboard/settings", icon: Settings },
 ];
 

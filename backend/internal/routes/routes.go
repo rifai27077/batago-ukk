@@ -69,6 +69,7 @@ func SetupRoutes(r *gin.Engine) {
 		// Profile
 		protected.GET("/profile", handlers.GetProfile)
 		protected.PUT("/profile", handlers.UpdateProfile)
+		protected.PUT("/auth/password/update", handlers.UpdatePassword)
 		protected.POST("/profile/avatar", handlers.UploadAvatar)
 		protected.POST("/profile/partner", handlers.BecomePartner)
 
@@ -106,6 +107,9 @@ func SetupRoutes(r *gin.Engine) {
 
 		// Partner Finance
 		protected.GET("/partner/finance", handlers.GetPartnerFinance)
+		protected.GET("/partner/finance/settings", handlers.GetPayoutSettings)
+		protected.PUT("/partner/finance/settings", handlers.UpdatePayoutSettings)
+		protected.POST("/partner/finance/payout", handlers.RequestEarlyPayout)
 
 		// Partner Analytics
 		protected.GET("/partner/analytics", handlers.GetPartnerAnalytics)
@@ -135,7 +139,11 @@ func SetupRoutes(r *gin.Engine) {
 		protected.DELETE("/partner/routes/:id", handlers.DeletePartnerRoute)
 
 		// Partner Insights
-		protected.GET("/partner/insights", handlers.GetPartnerInsights)
+		protected.GET("/partner/insights", handlers.GetPartnerAnalytics)
+
+		// Partner Reviews
+		protected.GET("/partner/reviews", handlers.GetPartnerReviews)
+		protected.POST("/partner/reviews/:id/reply", handlers.ReplyPartnerReview)
 
 		// Notifications
 		protected.GET("/notifications", handlers.GetNotifications)
@@ -148,5 +156,50 @@ func SetupRoutes(r *gin.Engine) {
 
 		// Promotions
 		protected.GET("/promotions/validate", handlers.ValidatePromoCode)
+
+		// --- Admin Routes ---
+		admin := protected.Group("/admin")
+		admin.Use(middleware.AdminOnly())
+		{
+			admin.GET("/stats", handlers.GetAdminStats)
+
+			admin.GET("/users", handlers.GetAdminUsers)
+			admin.PUT("/users/:id/status", handlers.UpdateUserStatus)
+
+			admin.GET("/partners", handlers.GetAdminPartners)
+			admin.PUT("/partners/:id/status", handlers.UpdatePartnerStatus)
+
+			admin.GET("/bookings", handlers.GetAdminBookings)
+
+			admin.GET("/finance/stats", handlers.GetAdminFinanceStats)
+			admin.GET("/finance/payouts", handlers.GetAdminPayouts)
+			admin.PUT("/finance/payouts/:id", handlers.ProcessAdminPayout)
+
+			admin.GET("/notifications", handlers.GetAdminNotifications)
+			admin.PUT("/notifications/read-all", handlers.MarkAdminNotificationsRead)
+			admin.DELETE("/notifications/:id", handlers.DeleteAdminNotification)
+
+			admin.GET("/destinations", handlers.GetAdminDestinations)
+			admin.POST("/destinations", handlers.CreateAdminDestination)
+			admin.PUT("/destinations/:id", handlers.UpdateAdminDestination)
+			admin.DELETE("/destinations/:id", handlers.DeleteAdminDestination)
+
+			admin.GET("/banners", handlers.GetAdminBanners)
+			admin.POST("/banners", handlers.CreateAdminBanner)
+			admin.PUT("/banners/:id", handlers.UpdateAdminBanner)
+			admin.DELETE("/banners/:id", handlers.DeleteAdminBanner)
+
+			admin.GET("/articles", handlers.GetAdminArticles)
+			admin.POST("/articles", handlers.CreateAdminArticle)
+			admin.PUT("/articles/:id", handlers.UpdateAdminArticle)
+			admin.DELETE("/articles/:id", handlers.DeleteAdminArticle)
+
+			admin.GET("/accounts", handlers.GetAdminAccounts)
+			admin.POST("/accounts", handlers.CreateAdminAccount)
+			admin.DELETE("/accounts/:id", handlers.DeleteAdminAccount)
+
+			admin.GET("/activity-log", handlers.GetAdminActivityLog)
+			admin.GET("/reports", handlers.GetAdminReports)
+		}
 	}
 }
