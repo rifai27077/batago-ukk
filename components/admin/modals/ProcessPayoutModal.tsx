@@ -10,8 +10,8 @@ interface ProcessPayoutModalProps {
   payout: {
     id: number;
     partner: string;
-    amount: string;
-    bookings: number;
+    amount: number;
+    bookings?: number;
   } | null;
 }
 
@@ -54,7 +54,9 @@ export default function ProcessPayoutModal({ isOpen, onClose, onProcess, payout 
             <div className="flex justify-between items-start mb-4">
                 <div>
                     <p className="text-xs text-primary font-bold uppercase tracking-wider mb-1">Total Payout</p>
-                    <p className="text-3xl font-bold text-primary dark:text-primary">{payout.amount}</p>
+                    <p className="text-3xl font-bold text-primary dark:text-primary">
+                        Rp {payout.amount.toLocaleString("id-ID")}
+                    </p>
                 </div>
                 <div className="bg-white dark:bg-slate-800 p-2 rounded-xl shadow-sm">
                     <Building2 className="w-5 h-5 text-primary" />

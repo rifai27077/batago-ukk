@@ -13,32 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default function StaysSearchPage() {
-  const stayDestinations = [
-    {
-      city: "Melbourne",
-      country: "An amazing journey", // Mapping title to country as per current design or similar
-      image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=2070",
-      priceFrom: 1200000,
-    },
-    {
-      city: "Paris",
-      country: "A Paris Adventure",
-      image: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=2073",
-      priceFrom: 2500000,
-    },
-    {
-      city: "London",
-      country: "London eye adventure",
-      image: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=2070",
-      priceFrom: 2200000,
-    },
-    {
-      city: "Columbia",
-      country: "Amazing streets",
-      image: "https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=1887",
-      priceFrom: 1800000,
-    }
-  ];
+
 
   return (
     <main className="min-h-screen bg-white">
@@ -60,11 +35,7 @@ export default function StaysSearchPage() {
         <SearchForm mode="hotels" />
       </Hero>
       <MapSection />
-      <Destinations 
-        title="Fall into travel"
-        description="Going somewhere to celebrate this season? Whether you're going home or somewhere to roam, we've got the travel tools to get you to your destination."
-        items={stayDestinations}
-      />
+      <Destinations />
       <Reviews />
       <Newsletter />
       <Footer />
