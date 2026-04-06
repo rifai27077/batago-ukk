@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rifai27077/batago-backend/internal/database"
@@ -29,7 +30,7 @@ func GetPartnerFleet(c *gin.Context) {
 
 	query := database.DB.Where("partner_id = ?", partner.ID)
 	if search != "" {
-		query = query.Where("registration ILIKE ? OR model ILIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("registration LIKE ? OR model LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
 	var total int64
@@ -105,6 +106,10 @@ func CreateAircraft(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&aircraft).Error; err != nil {
+		if strings.Contains(err.Error(), "Duplicate entry") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "An aircraft with this registration number already exists"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create aircraft"})
 		return
 	}
@@ -136,7 +141,17 @@ func UpdateAircraft(c *gin.Context) {
 		return
 	}
 
+	// Map generic JSON keys to correct SQL column names
+	if yom, exists := input["yom"]; exists {
+		input["year_of_manufacture"] = yom
+		delete(input, "yom")
+	}
+
 	if err := database.DB.Model(&aircraft).Updates(input).Error; err != nil {
+		if strings.Contains(err.Error(), "Duplicate entry") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "An aircraft with this registration number already exists"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update aircraft"})
 		return
 	}

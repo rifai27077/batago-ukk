@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/joho/godotenv"
 )
@@ -26,7 +26,10 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
-	m, err := migrate.New("file://migrations", dsn)
+	// golang-migrate expects mysql:// prefix for MySQL DSN
+	migrateURL := "mysql://" + dsn
+
+	m, err := migrate.New("file://migrations", migrateURL)
 	if err != nil {
 		log.Fatalf("Failed to create migrate instance: %v", err)
 	}

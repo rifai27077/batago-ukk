@@ -1,90 +1,100 @@
 -- 006_create_bookings.up.sql
 
 CREATE TABLE IF NOT EXISTS bookings (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     booking_code VARCHAR(255) UNIQUE NOT NULL,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+    user_id INT,
+    partner_id INT,
     type VARCHAR(50) NOT NULL, -- 'flight', 'hotel'
     payment_status VARCHAR(50) DEFAULT 'PENDING', -- PENDING, PAID, FAILED, EXPIRED
     booking_status VARCHAR(50) DEFAULT 'NEW', -- NEW, CONFIRMED, CHECKED_IN, COMPLETED, CANCELLED
     total_amount DECIMAL(15,2) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS payments (
-    id SERIAL PRIMARY KEY,
-    booking_id INTEGER UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT UNIQUE,
     gateway VARCHAR(100),
     transaction_id VARCHAR(255),
     amount DECIMAL(15,2) NOT NULL,
     status VARCHAR(50) DEFAULT 'PENDING', -- PENDING, SUCCESS, FAILED
-    paid_at TIMESTAMPTZ,
-    raw_response JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    paid_at DATETIME,
+    raw_response JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS e_tickets (
-    id SERIAL PRIMARY KEY,
-    booking_id INTEGER UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT UNIQUE,
     ticket_number VARCHAR(255) NOT NULL,
-    issued_at TIMESTAMPTZ NOT NULL,
+    issued_at DATETIME NOT NULL,
     issued_by VARCHAR(255),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS hotel_vouchers (
-    id SERIAL PRIMARY KEY,
-    booking_id INTEGER UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT UNIQUE,
     voucher_code VARCHAR(255) NOT NULL,
-    issued_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    issued_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS flight_bookings (
-    id SERIAL PRIMARY KEY,
-    booking_id INTEGER UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
-    flight_id INTEGER REFERENCES flights(id),
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT UNIQUE,
+    flight_id INT,
     class VARCHAR(50) NOT NULL, -- Economy, Business, First
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+    FOREIGN KEY (flight_id) REFERENCES flights(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS passengers (
-    id SERIAL PRIMARY KEY,
-    booking_id INTEGER REFERENCES bookings(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL, -- Adult, Child
     seat_number VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS reviews (
-    id SERIAL PRIMARY KEY,
-    booking_id INTEGER UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT UNIQUE,
+    user_id INT,
+    rating INT NOT NULL,
     comment TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (rating >= 1 AND rating <= 5)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE INDEX idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX idx_bookings_partner_id ON bookings(partner_id);
-CREATE INDEX idx_bookings_code ON bookings(booking_code);
 CREATE INDEX idx_bookings_deleted_at ON bookings(deleted_at);
 CREATE INDEX idx_payments_booking_id ON payments(booking_id);
 CREATE INDEX idx_payments_deleted_at ON payments(deleted_at);

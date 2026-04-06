@@ -28,3 +28,9 @@ type Review struct {
 	Comment   string  `gorm:"type:text" json:"comment"`
 	Reply     *string `gorm:"type:text" json:"reply"`
 }
+
+type PlatformSetting struct {
+	gorm.Model
+	Key   string `gorm:"type:varchar(100);uniqueIndex" json:"key"`
+	Value string `gorm:"type:text" json:"value"`
+}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -31,7 +32,7 @@ func GetPartnerRoutes(c *gin.Context) {
 
 	query := database.DB.Where("partner_id = ?", partner.ID)
 	if search != "" {
-		query = query.Where("flight_number ILIKE ? OR airline ILIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("flight_number LIKE ? OR airline LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
 	var total int64
@@ -43,17 +44,24 @@ func GetPartnerRoutes(c *gin.Context) {
 	q.Find(&flights)
 
 	// Build response
+	type ClassResponse struct {
+		Class    string  `json:"class"`
+		Price    float64 `json:"price"`
+		Capacity int     `json:"capacity"`
+	}
 	type RouteResponse struct {
-		ID           uint   `json:"id"`
-		Origin       string `json:"origin"`
-		OriginCity   string `json:"origin_city"`
-		Destination  string `json:"destination"`
-		DestCity     string `json:"destination_city"`
-		FlightNumber string `json:"flight_number"`
-		Duration     string `json:"duration"`
-		Aircraft     string `json:"aircraft"`
-		Schedule     string `json:"schedule"`
-		Status       string `json:"status"`
+		ID           uint            `json:"id"`
+		Origin       string          `json:"origin"`
+		OriginCity   string          `json:"origin_city"`
+		Destination  string          `json:"destination"`
+		DestCity     string          `json:"destination_city"`
+		FlightNumber string          `json:"flight_number"`
+		Duration     string          `json:"duration"`
+		Aircraft     string          `json:"aircraft"`
+		Schedule     interface{}     `json:"schedule"`
+		BasePrice    float64         `json:"base_price"`
+		Classes      []ClassResponse `json:"classes"`
+		Status       string          `json:"status"`
 	}
 
 	results := []RouteResponse{}
@@ -84,6 +92,28 @@ func GetPartnerRoutes(c *gin.Context) {
 			aircraftModel = aircraft.AircraftModel
 		}
 
+		var flightSeats []models.FlightSeat
+		database.DB.Where("flight_id = ?", f.ID).Find(&flightSeats)
+
+		var basePrice float64
+		var classResp []ClassResponse
+
+		for _, seat := range flightSeats {
+			classResp = append(classResp, ClassResponse{
+				Class:    string(seat.Class),
+				Price:    seat.Price,
+				Capacity: seat.TotalSeats,
+			})
+			if basePrice == 0 || seat.Price < basePrice {
+				basePrice = seat.Price
+			}
+		}
+
+		var scheds []string
+		if f.Schedule != "" && f.Schedule != "null" {
+			json.Unmarshal([]byte(f.Schedule), &scheds)
+		}
+
 		results = append(results, RouteResponse{
 			ID:           f.ID,
 			Origin:       f.DepartureAirport.Code,
@@ -93,7 +123,9 @@ func GetPartnerRoutes(c *gin.Context) {
 			FlightNumber: f.FlightNumber,
 			Duration:     durationStr,
 			Aircraft:     aircraftModel,
-			Schedule:     "Daily",
+			Schedule:     scheds,
+			BasePrice:    basePrice,
+			Classes:      classResp,
 			Status:       "active",
 		})
 	}
@@ -125,13 +157,21 @@ func GetPartnerRoutes(c *gin.Context) {
 	})
 }
 
+type ClassInput struct {
+	Class    string  `json:"class"`
+	Price    float64 `json:"price"`
+	Capacity int     `json:"capacity"`
+}
+
 type CreateRouteInput struct {
-	Origin       string  `json:"origin" binding:"required"`       // Airport code
-	Destination  string  `json:"destination" binding:"required"`  // Airport code
-	FlightNumber string  `json:"flight_number" binding:"required"`
-	Duration     string  `json:"duration"`      // e.g. "1h 45m"
-	Aircraft     string  `json:"aircraft"`      // aircraft type
-	BasePrice    float64 `json:"base_price"`
+	Origin       string       `json:"origin" binding:"required"`
+	Destination  string       `json:"destination" binding:"required"`
+	FlightNumber string       `json:"flight_number" binding:"required"`
+	Duration     string       `json:"duration"`
+	Aircraft     string       `json:"aircraft"`
+	BasePrice    float64      `json:"base_price"` // fallback
+	Classes      []ClassInput `json:"classes"`
+	Schedule     []string     `json:"schedule"`
 }
 
 // CreatePartnerRoute creates a new flight route
@@ -151,17 +191,29 @@ func CreatePartnerRoute(c *gin.Context) {
 		return
 	}
 
-	// Resolve airports
+	// Resolve airports (auto-create if not exists)
 	var depAirport models.Airport
 	if err := database.DB.Where("code = ?", input.Origin).First(&depAirport).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Origin airport not found: " + input.Origin})
-		return
+		depAirport = models.Airport{
+			Code:     input.Origin,
+			Name:     input.Origin + " Airport",
+			City:     input.Origin,
+			Country:  "Global",
+			Timezone: "UTC",
+		}
+		database.DB.Create(&depAirport)
 	}
 
 	var arrAirport models.Airport
 	if err := database.DB.Where("code = ?", input.Destination).First(&arrAirport).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Destination airport not found: " + input.Destination})
-		return
+		arrAirport = models.Airport{
+			Code:     input.Destination,
+			Name:     input.Destination + " Airport",
+			City:     input.Destination,
+			Country:  "Global",
+			Timezone: "UTC",
+		}
+		database.DB.Create(&arrAirport)
 	}
 
 	// Parse duration string to minutes
@@ -170,6 +222,8 @@ func CreatePartnerRoute(c *gin.Context) {
 	// Set a default departure time (today + 1 day at 08:00)
 	defaultDeparture := time.Now().AddDate(0, 0, 1).Truncate(24*time.Hour).Add(8 * time.Hour)
 	defaultArrival := defaultDeparture.Add(time.Duration(durationMinutes) * time.Minute)
+
+	schedBytes, _ := json.Marshal(input.Schedule)
 
 	flight := models.Flight{
 		PartnerID:          partner.ID,
@@ -181,6 +235,7 @@ func CreatePartnerRoute(c *gin.Context) {
 		ArrivalTime:        defaultArrival,
 		Duration:           durationMinutes,
 		BaggageAllowanceKg: 20,
+		Schedule:           string(schedBytes),
 	}
 
 	if err := database.DB.Create(&flight).Error; err != nil {
@@ -188,8 +243,21 @@ func CreatePartnerRoute(c *gin.Context) {
 		return
 	}
 
-	// Create default economy seat
-	if input.BasePrice > 0 {
+	// Create classes
+	if len(input.Classes) > 0 {
+		for _, cls := range input.Classes {
+			seat := models.FlightSeat{
+				FlightID:       flight.ID,
+				Class:          models.FlightClass(cls.Class),
+				Price:          cls.Price,
+				TotalSeats:     cls.Capacity,
+				AvailableSeats: cls.Capacity,
+				Features:       `["Standard seat","Snack box"]`, // Simplified
+			}
+			database.DB.Create(&seat)
+		}
+	} else if input.BasePrice > 0 {
+		// Fallback to default economy if no classes array is provided
 		seat := models.FlightSeat{
 			FlightID:       flight.ID,
 			Class:          models.FlightClassEconomy,
@@ -245,6 +313,110 @@ func DeletePartnerRoute(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Route deleted"})
+}
+
+// UpdatePartnerRoute updates a flight route
+// PUT /v1/partner/routes/:id
+func UpdatePartnerRoute(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	routeID := c.Param("id")
+
+	var partner models.Partner
+	if err := database.DB.Where("user_id = ?", userID).First(&partner).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Partner not found"})
+		return
+	}
+
+	var flight models.Flight
+	if err := database.DB.Where("id = ? AND partner_id = ?", routeID, partner.ID).First(&flight).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Route not found"})
+		return
+	}
+
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := map[string]interface{}{}
+
+	if flightNum, ok := input["flight_number"].(string); ok {
+		updates["flight_number"] = flightNum
+	}
+
+	if dur, ok := input["duration"].(string); ok {
+		updates["duration"] = parseDuration(dur)
+	} else if durFloat, ok := input["duration"].(float64); ok {
+		updates["duration"] = int(durFloat)
+	}
+
+	if sched, ok := input["schedule"].([]interface{}); ok {
+		schedBytes, _ := json.Marshal(sched)
+		updates["schedule"] = string(schedBytes)
+	}
+
+	if originCode, ok := input["origin"].(string); ok && originCode != "" {
+		var depAirport models.Airport
+		if database.DB.Where("code = ?", originCode).First(&depAirport).Error != nil {
+			depAirport = models.Airport{
+				Code:     originCode,
+				Name:     originCode + " Airport",
+				City:     originCode,
+				Country:  "Global",
+				Timezone: "UTC",
+			}
+			database.DB.Create(&depAirport)
+		}
+		updates["departure_airport_id"] = depAirport.ID
+	}
+
+	if destCode, ok := input["destination"].(string); ok && destCode != "" {
+		var arrAirport models.Airport
+		if database.DB.Where("code = ?", destCode).First(&arrAirport).Error != nil {
+			arrAirport = models.Airport{
+				Code:     destCode,
+				Name:     destCode + " Airport",
+				City:     destCode,
+				Country:  "Global",
+				Timezone: "UTC",
+			}
+			database.DB.Create(&arrAirport)
+		}
+		updates["arrival_airport_id"] = arrAirport.ID
+	}
+
+	if err := database.DB.Model(&flight).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update route"})
+		return
+	}
+
+	if classesInter, ok := input["classes"].([]interface{}); ok {
+		database.DB.Where("flight_id = ?", flight.ID).Delete(&models.FlightSeat{})
+		for _, clsInt := range classesInter {
+			if clsMap, ok := clsInt.(map[string]interface{}); ok {
+				clsName, _ := clsMap["class"].(string)
+				price, _ := clsMap["price"].(float64)
+				capFloat, _ := clsMap["capacity"].(float64)
+				cap := int(capFloat)
+
+				if clsName != "" && price > 0 {
+					database.DB.Create(&models.FlightSeat{
+						FlightID:       flight.ID,
+						Class:          models.FlightClass(clsName),
+						Price:          price,
+						TotalSeats:     cap,
+						AvailableSeats: cap,
+						Features:       `["Standard seat","Snack box"]`,
+					})
+				}
+			}
+		}
+	} else if basePrice, ok := input["base_price"].(float64); ok {
+		database.DB.Model(&models.FlightSeat{}).Where("flight_id = ?", flight.ID).Update("price", basePrice)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Route updated", "data": flight})
 }
 
 // parseDuration converts "1h 45m" or "2h 30m" to minutes

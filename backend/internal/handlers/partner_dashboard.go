@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rifai27077/batago-backend/internal/database"
 	"github.com/rifai27077/batago-backend/internal/models"
+	"github.com/rifai27077/batago-backend/internal/service"
 )
 
 // ==================== HOTEL LISTINGS ====================
@@ -37,7 +39,7 @@ func GetPartnerListings(c *gin.Context) {
 		// Return flights
 		query := database.DB.Where("partner_id = ?", partner.ID)
 		if search != "" {
-			query = query.Where("flight_number ILIKE ? OR airline ILIKE ?", "%"+search+"%", "%"+search+"%")
+			query = query.Where("flight_number LIKE ? OR airline LIKE ?", "%"+search+"%", "%"+search+"%")
 		}
 
 		var total int64
@@ -70,7 +72,7 @@ func GetPartnerListings(c *gin.Context) {
 	// Default: Return hotels
 	query := database.DB.Where("partner_id = ?", partner.ID)
 	if search != "" {
-		query = query.Where("name ILIKE ? OR address ILIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("name LIKE ? OR address LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 	_ = status // status filter can be added later when hotels have a status field
 
@@ -176,7 +178,7 @@ func CreatePartnerListing(c *gin.Context) {
 			for _, a := range input.Amenities {
 				if !foundNames[a] {
 					var extra models.Facility
-					if err := database.DB.Where("name ILIKE ?", "%"+a+"%").First(&extra).Error; err == nil {
+					if err := database.DB.Where("name LIKE ?", "%"+a+"%").First(&extra).Error; err == nil {
 						facilities = append(facilities, extra)
 					}
 				}
@@ -282,14 +284,23 @@ func UpdatePartnerListing(c *gin.Context) {
 			for _, a := range input.Amenities {
 				if !foundNames[a] {
 					var extra models.Facility
-					if err := database.DB.Where("name ILIKE ?", "%"+a+"%").First(&extra).Error; err == nil {
+					if err := database.DB.Where("name LIKE ?", "%"+a+"%").First(&extra).Error; err == nil {
 						facilities = append(facilities, extra)
 					}
 				}
 			}
 		}
 	}
-	database.DB.Model(&hotel).Association("Facilities").Replace(facilities)
+	// Deduplicate facilities by ID to prevent inserting duplicates into the join table
+	uniqueFacilities := []models.Facility{}
+	seenFacilityMap := make(map[uint]bool)
+	for _, f := range facilities {
+		if !seenFacilityMap[f.ID] {
+			seenFacilityMap[f.ID] = true
+			uniqueFacilities = append(uniqueFacilities, f)
+		}
+	}
+	database.DB.Model(&hotel).Association("Facilities").Replace(uniqueFacilities)
 
 	if len(input.Images) > 0 {
 		var newImages []models.HotelImage
@@ -356,7 +367,7 @@ func GetPartnerBookings(c *gin.Context) {
 		query = query.Where("booking_status = ?", status)
 	}
 	if search != "" {
-		query = query.Where("booking_code ILIKE ?", "%"+search+"%")
+		query = query.Where("booking_code LIKE ?", "%"+search+"%")
 	}
 
 	var total int64
@@ -370,7 +381,7 @@ func GetPartnerBookings(c *gin.Context) {
 	// Preload type-specific associations based on partner type
 	if partner.Type == "hotel" {
 		q = q.Preload("HotelBooking.RoomType.Hotel")
-	} else if partner.Type == "airline" {
+	} else if partner.Type == "airline" || partner.Type == "flight" {
 		q = q.Preload("FlightBooking.Flight.DepartureAirport").Preload("FlightBooking.Flight.ArrivalAirport")
 	}
 
@@ -380,6 +391,63 @@ func GetPartnerBookings(c *gin.Context) {
 		"data": bookings,
 		"meta": gin.H{"page": page, "limit": limit, "total": total},
 	})
+}
+
+// UpdatePartnerBookingStatus updates the status of a specific partner booking
+func UpdatePartnerBookingStatus(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	bookingID := c.Param("id")
+
+	var partner models.Partner
+	if err := database.DB.Where("user_id = ?", userID).First(&partner).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Partner not found"})
+		return
+	}
+
+	var booking models.Booking
+	if err := database.DB.Preload("User").Where("booking_code = ? AND partner_id = ?", bookingID, partner.ID).First(&booking).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Booking not found"})
+		return
+	}
+
+	var input struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	booking.BookingStatus = models.BookingStatus(input.Status)
+	// Optional integrations based on status changes can go here
+	if models.BookingStatus(input.Status) == models.BookingStatusCompleted {
+		booking.PaymentStatus = models.PaymentStatusPaid
+	}
+
+	if err := database.DB.Save(&booking).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update booking status"})
+		return
+	}
+
+	if booking.BookingStatus == models.BookingStatusCompleted {
+		downloadLink := fmt.Sprintf("http://localhost:3000/my-bookings/%v", booking.BookingCode)
+		emailBody := fmt.Sprintf(`
+		<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+			<h2 style="color: #14B8A6;">Your Ticket is Ready!</h2>
+			<p>Hi %%s,</p>
+			<p>Your booking <strong>%%s</strong> has been completed by the partner.</p>
+			<p>You can now download your E-Ticket/Voucher from your dashboard.</p>
+			<a href="%%s" style="display: inline-block; background-color: #14B8A6; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px;">
+				Download E-Ticket
+			</a>
+			<p style="margin-top: 30px; font-size: 14px; color: #666;">Best regards,<br>BataGo Team</p>
+		</div>
+		`, booking.User.Name, booking.BookingCode, downloadLink)
+
+		go service.NewEmailService().SendEmail(booking.User.Email, "BataGo - E-Ticket Ready", emailBody)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Booking status updated successfully"})
 }
 
 // ==================== PARTNER REVIEWS ====================
@@ -826,6 +894,10 @@ func GetPartnerFinance(c *gin.Context) {
 		})
 	}
 
+	// Fetch Payout Requests History
+	var payoutRequests []models.PayoutRequest
+	database.DB.Where("partner_id = ?", partner.ID).Preload("BankAccount").Order("created_at DESC").Find(&payoutRequests)
+
 	c.JSON(http.StatusOK, gin.H{
 		"summary": gin.H{
 			"total_revenue":  totalRevenue,
@@ -836,6 +908,7 @@ func GetPartnerFinance(c *gin.Context) {
 		},
 		"chart_data":   chartData,
 		"transactions": formattedTx,
+		"payouts":      payoutRequests,
 		"meta":         gin.H{"page": page, "limit": limit, "total": paidBookings},
 	})
 }

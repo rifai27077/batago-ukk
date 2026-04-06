@@ -28,6 +28,7 @@ type Flight struct {
 	DepartureTime      time.Time `json:"departure_time"`
 	ArrivalTime        time.Time `json:"arrival_time"`
 	Duration           int       `json:"duration"` // in minutes
+	Schedule           string    `gorm:"type:json" json:"schedule"`
 	BaggageAllowanceKg int       `json:"baggage_allowance_kg"`
 }
 

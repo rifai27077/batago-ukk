@@ -252,6 +252,16 @@ func MidtransWebhook(c *gin.Context) {
 
 	tx.Commit()
 
+	// ── Trigger Notifications ──────────────────
+	var booking models.Booking
+	if err := database.DB.First(&booking, payment.BookingID).Error; err == nil {
+		if newPaymentStatus == models.PaymentStatusPaid {
+			service.CreateBookingNotification(booking.UserID, booking.BookingCode, "paid")
+		} else if newPaymentStatus == models.PaymentStatusFailed {
+			service.CreateBookingNotification(booking.UserID, booking.BookingCode, "failed")
+		}
+	}
+
 	// ── Post-payment actions (Email & Ticket Generation) ──────────────────
 	if newPaymentStatus == models.PaymentStatusPaid {
 		// 1. Generate E-Ticket or Voucher record

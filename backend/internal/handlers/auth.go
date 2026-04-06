@@ -12,6 +12,7 @@ import (
 	"github.com/rifai27077/batago-backend/internal/database"
 	"github.com/rifai27077/batago-backend/internal/middleware"
 	"github.com/rifai27077/batago-backend/internal/models"
+	"github.com/rifai27077/batago-backend/internal/service"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -84,8 +85,23 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// In a real app, send email here. For now, we simulate it.
-	// Log the code so the developer/user can see it
+	// Send Verification Email
+	emailBody := fmt.Sprintf(`
+		<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+			<h2 style="color: #14B8A6;">Welcome to BataGo!</h2>
+			<p>Hi %s,</p>
+			<p>Thank you for registering. Please use the verification code below to verify your email address:</p>
+			<div style="background-color: #F3F4F6; padding: 15px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; border-radius: 8px; margin: 20px 0;">
+				%s
+			</div>
+			<p>If you did not request this, you can ignore this email.</p>
+			<p>Best regards,<br>BataGo Team</p>
+		</div>
+	`, user.Name, verificationCode)
+	
+	go service.NewEmailService().SendEmail(user.Email, "BataGo Email Verification", emailBody)
+
+	// Still log to console for debugging
 	println("==================================================")
 	println("VERIFICATION CODE FOR " + user.Email + ": " + verificationCode)
 	println("==================================================")
@@ -159,7 +175,22 @@ func ResendVerification(c *gin.Context) {
 		return
 	}
 
-	// In a real app, send email here. For now, we simulate it.
+	// Send Verification Email
+	emailBody := fmt.Sprintf(`
+		<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+			<h2 style="color: #14B8A6;">BataGo Verification</h2>
+			<p>Hi %s,</p>
+			<p>As requested, here is your new verification code:</p>
+			<div style="background-color: #F3F4F6; padding: 15px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; border-radius: 8px; margin: 20px 0;">
+				%s
+			</div>
+			<p>If you did not request this, please secure your account.</p>
+			<p>Best regards,<br>BataGo Team</p>
+		</div>
+	`, user.Name, verificationCode)
+
+	go service.NewEmailService().SendEmail(user.Email, "Resend: BataGo Email Verification", emailBody)
+
 	println("==================================================")
 	println("RESEND VERIFICATION CODE FOR " + user.Email + ": " + verificationCode)
 	println("==================================================")
@@ -208,6 +239,7 @@ func Login(c *gin.Context) {
 			"name":  user.Name,
 			"email": user.Email,
 			"role":  user.Role,
+			"sub_role": user.SubRole,
 			"phone": user.Phone,
 		},
 	})
@@ -251,6 +283,7 @@ func GetProfile(c *gin.Context) {
 			"name":                 user.Name,
 			"email":                user.Email,
 			"role":                  user.Role,
+			"sub_role":              user.SubRole,
 			"phone":                 user.Phone,
 			"avatar_url":            avatarURL,
 			"created_at":            user.CreatedAt,
@@ -333,6 +366,7 @@ func UpdateProfile(c *gin.Context) {
 			"name":       user.Name,
 			"email":      user.Email,
 			"role":       user.Role,
+			"sub_role":   user.SubRole,
 			"phone":      user.Phone,
 			"avatar_url": avatarURL,
 			"created_at": user.CreatedAt,

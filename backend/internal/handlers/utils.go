@@ -2,7 +2,7 @@ package handlers
 
 import "time"
 
-// formatTrunc handles disparate date formats between PostgreSQL (time.Time)
+// formatTrunc handles disparate date formats between MySQL (time.Time)
 // and SQLite (string) when scanning truncated date columns.
 func formatTrunc(v interface{}) string {
 	if v == nil {

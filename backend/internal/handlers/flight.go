@@ -156,7 +156,7 @@ func GetAirports(c *gin.Context) {
 
 	if q != "" {
 		search := "%" + q + "%"
-		query = query.Where("name ILIKE ? OR code ILIKE ? OR city ILIKE ?", search, search, search)
+		query = query.Where("name LIKE ? OR code LIKE ? OR city LIKE ?", search, search, search)
 	}
 
 	if err := query.Limit(20).Find(&airports).Error; err != nil {

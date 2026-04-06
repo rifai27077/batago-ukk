@@ -58,7 +58,7 @@ type Payment struct {
 	Amount        float64       `gorm:"type:decimal(15,2)" json:"amount"`
 	Status        PaymentStatus `gorm:"type:varchar(50);default:'PENDING'" json:"status"`
 	PaidAt        *time.Time    `json:"paid_at"`
-	RawResponse   string        `gorm:"type:jsonb" json:"raw_response"`
+	RawResponse   string        `gorm:"type:json" json:"raw_response"`
 	SnapToken     string        `gorm:"type:varchar(512)" json:"snap_token"`
 	RedirectURL   string        `gorm:"type:varchar(1024)" json:"redirect_url"`
 }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strconv"
 	"github.com/rifai27077/batago-backend/internal/database"
 	"github.com/rifai27077/batago-backend/internal/models"
 
@@ -161,6 +162,29 @@ func RequestEarlyPayout(c *gin.Context) {
 	if err := database.DB.Create(&request).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payout request"})
 		return
+	}
+
+	// Notify Partner
+	importStrconv := strconv.FormatFloat(req.Amount, 'f', 0, 64) // need to assure strconv is imported
+	database.DB.Create(&models.Notification{
+		UserID:  userID,
+		Type:    models.NotificationTypeInfo,
+		Title:   "Payout Request Submitted",
+		Message: "Your early payout request for Rp " + importStrconv + " has been submitted and is being processed.",
+		Link:    "/partner/dashboard/finance",
+	})
+
+	// Notify Admins
+	var adminUsers []models.User
+	database.DB.Where("role = ?", models.RoleAdmin).Find(&adminUsers)
+	for _, admin := range adminUsers {
+		database.DB.Create(&models.Notification{
+			UserID:  admin.ID,
+			Type:    models.NotificationTypeInfo,
+			Title:   "New Payout Request",
+			Message: partner.CompanyName + " requested a payout of Rp " + importStrconv + ".",
+			Link:    "/admin/finance/payouts",
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Early payout request submitted successfully"})

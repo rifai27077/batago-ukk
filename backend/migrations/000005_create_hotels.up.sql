@@ -1,68 +1,76 @@
 -- 005_create_hotels.up.sql
 
 CREATE TABLE IF NOT EXISTS hotels (
-    id SERIAL PRIMARY KEY,
-    partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    partner_id INT,
     name VARCHAR(255) NOT NULL,
-    city_id INTEGER REFERENCES cities(id),
+    city_id INT,
     description TEXT,
     address TEXT,
     rating DECIMAL(3,2) DEFAULT 0,
-    total_reviews INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    total_reviews INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE,
+    FOREIGN KEY (city_id) REFERENCES cities(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS hotel_images (
-    id SERIAL PRIMARY KEY,
-    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    hotel_id INT,
     url VARCHAR(255) NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    is_primary TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS hotel_facilities (
-    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
-    facility_id INTEGER REFERENCES facilities(id) ON DELETE CASCADE,
-    PRIMARY KEY (hotel_id, facility_id)
-);
+    hotel_id INT,
+    facility_id INT,
+    PRIMARY KEY (hotel_id, facility_id),
+    FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE,
+    FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS room_types (
-    id SERIAL PRIMARY KEY,
-    hotel_id INTEGER REFERENCES hotels(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    hotel_id INT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    size_m2 INTEGER,
-    max_guests INTEGER NOT NULL,
+    size_m2 INT,
+    max_guests INT NOT NULL,
     base_price DECIMAL(15,2) NOT NULL,
-    features JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    features JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS room_images (
-    id SERIAL PRIMARY KEY,
-    room_id INTEGER REFERENCES room_types(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    room_id INT,
     url VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (room_id) REFERENCES room_types(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS room_availabilities (
-    id SERIAL PRIMARY KEY,
-    room_type_id INTEGER REFERENCES room_types(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    room_type_id INT,
     date DATE NOT NULL,
-    available_rooms INTEGER NOT NULL,
+    available_rooms INT NOT NULL,
     price_override DECIMAL(15,2),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME,
+    FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE INDEX idx_hotels_partner_id ON hotels(partner_id);
 CREATE INDEX idx_hotels_city_id ON hotels(city_id);

@@ -33,7 +33,7 @@ func GetPublicPromotions(c *gin.Context) {
 		query = query.Where("type = ?", promoType)
 	}
 	if search != "" {
-		query = query.Where("name ILIKE ? OR code ILIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("name LIKE ? OR code LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
 	var total int64
@@ -97,7 +97,7 @@ func GetPartnerPromotions(c *gin.Context) {
 		query = query.Where("status = ?", status)
 	}
 	if search != "" {
-		query = query.Where("name ILIKE ?", "%"+search+"%")
+		query = query.Where("name LIKE ?", "%"+search+"%")
 	}
 
 	var total int64

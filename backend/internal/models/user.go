@@ -20,6 +20,7 @@ type User struct {
 	Email     string `gorm:"uniqueIndex;type:varchar(255)" json:"email"`
 	Password  string `gorm:"type:varchar(255)" json:"-"`
 	Role      Role   `gorm:"type:varchar(50);default:'USER'" json:"role"`
+	SubRole   string `gorm:"type:varchar(50)" json:"sub_role"`
 	Phone     string `gorm:"type:varchar(20)" json:"phone"`
 	AvatarURL        string `gorm:"type:varchar(255)" json:"avatar_url"`
 	IsVerified       bool   `gorm:"default:false" json:"is_verified"`

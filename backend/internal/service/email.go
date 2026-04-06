@@ -10,6 +10,7 @@ import (
 )
 
 type EmailService interface {
+	SendEmail(to string, subject string, body string) error
 	SendEmailWithAttachment(to string, subject string, body string, attachment []byte, filename string) error
 }
 
@@ -34,6 +35,33 @@ func NewEmailService() EmailService {
 		password: os.Getenv("SMTP_PASS"),
 		from:     os.Getenv("SMTP_FROM"),
 	}
+}
+
+func (s *smtpEmailService) SendEmail(to string, subject string, body string) error {
+	if s.host == "" || s.username == "" {
+		log.Printf("--------------------------------------------------")
+		log.Printf("SMTP NOT CONFIGURED. LOGGING EMAIL CONTENT:")
+		log.Printf("TO: %s", to)
+		log.Printf("SUBJECT: %s", subject)
+		log.Printf("BODY: %s", body)
+		log.Printf("--------------------------------------------------")
+		return nil
+	}
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", s.from)
+	m.SetHeader("To", to)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/html", body)
+
+	d := gomail.NewDialer(s.host, s.port, s.username, s.password)
+	if err := d.DialAndSend(m); err != nil {
+		log.Printf("Failed to send email to %s: %v", to, err)
+		return err
+	}
+
+	log.Printf("Email successfully sent to %s", to)
+	return nil
 }
 
 func (s *smtpEmailService) SendEmailWithAttachment(to string, subject string, body string, attachment []byte, filename string) error {

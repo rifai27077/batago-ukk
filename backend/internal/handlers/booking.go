@@ -53,7 +53,9 @@ func CreateFlightBooking(c *gin.Context) {
 	var flight models.Flight
 	database.DB.First(&flight, input.FlightID)
 
-	totalAmount := seat.Price * float64(len(input.Passengers))
+	basePrice := seat.Price * float64(len(input.Passengers))
+	tax := basePrice * 0.11
+	totalAmount := basePrice + tax
 	bookingCode := generateBookingCode("FL")
 
 	// Create booking within a transaction
@@ -108,6 +110,9 @@ func CreateFlightBooking(c *gin.Context) {
 
 	tx.Commit()
 
+	// Trigger Notification
+	service.CreateBookingNotification(uid, bookingCode, "created")
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message":      "Flight booking created",
 		"booking_code": bookingCode,
@@ -132,22 +137,26 @@ func CreateHotelBooking(c *gin.Context) {
 
 	var input HotelBookingInput
 	if err := c.ShouldBindJSON(&input); err != nil {
+		fmt.Println("CreateHotelBooking Binding Error:", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	checkin, err := time.Parse("2006-01-02", input.CheckIn)
 	if err != nil {
+		fmt.Println("CreateHotelBooking CheckIn Parse Error:", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid check-in date format (YYYY-MM-DD)"})
 		return
 	}
 	checkout, err := time.Parse("2006-01-02", input.CheckOut)
 	if err != nil {
+		fmt.Println("CreateHotelBooking CheckOut Parse Error:", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid check-out date format (YYYY-MM-DD)"})
 		return
 	}
 
 	if !checkout.After(checkin) {
+		fmt.Println("CreateHotelBooking Date Order Error: checkout is not after checkin")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Check-out must be after check-in"})
 		return
 	}
@@ -160,13 +169,16 @@ func CreateHotelBooking(c *gin.Context) {
 	}
 
 	if input.Guests > roomType.MaxGuests {
+		fmt.Printf("CreateHotelBooking Guest Count Error: %d > %d\n", input.Guests, roomType.MaxGuests)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Number of guests exceeds room capacity"})
 		return
 	}
 
-	// Calculate total (number of nights * price)
+	// Calculate total (number of nights * price + 11% tax)
 	nights := int(checkout.Sub(checkin).Hours() / 24)
-	totalAmount := roomType.BasePrice * float64(nights)
+	basePrice := roomType.BasePrice * float64(nights)
+	tax := basePrice * 0.11
+	totalAmount := basePrice + tax
 
 	// Get hotel's partner
 	var hotel models.Hotel
@@ -176,6 +188,34 @@ func CreateHotelBooking(c *gin.Context) {
 
 	tx := database.DB.Begin()
 
+	// Check and decrement room availability
+	var availabilities []models.RoomAvailability
+	if err := tx.Where("room_type_id = ? AND date >= ? AND date < ?", roomType.ID, checkin, checkout).Find(&availabilities).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check room availability"})
+		return
+	}
+
+	if len(availabilities) < nights {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Room not available for the full duration of the dates selected"})
+		return
+	}
+
+	for _, avail := range availabilities {
+		if avail.AvailableRooms <= 0 {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Room sold out on " + avail.Date.Format("2006-01-02")})
+			return
+		}
+		// Decrement
+		avail.AvailableRooms--
+		if err := tx.Save(&avail).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reserve room availability"})
+			return
+		}
+	}
 	booking := models.Booking{
 		BookingCode:   bookingCode,
 		UserID:        uid,
@@ -220,6 +260,9 @@ func CreateHotelBooking(c *gin.Context) {
 	}
 
 	tx.Commit()
+
+	// Trigger Notification
+	service.CreateBookingNotification(uid, bookingCode, "created")
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message":      "Hotel booking created",
@@ -276,7 +319,7 @@ func GetBookingDetail(c *gin.Context) {
 	idOrCode := c.Param("id")
 
 	var booking models.Booking
-	query := database.DB.Preload("Partner").Where("user_id = ?", uid)
+	query := database.DB.Preload("Partner").Preload("Passengers").Where("user_id = ?", uid)
 
 	// Determine if idOrCode is an ID (numeric) or a Booking Code
 	if id, err := strconv.Atoi(idOrCode); err == nil {
@@ -294,7 +337,6 @@ func GetBookingDetail(c *gin.Context) {
 	if booking.Type == models.BookingTypeFlight {
 		database.DB.Preload("Flight.DepartureAirport").
 			Preload("Flight.ArrivalAirport").
-			Preload("Passengers").
 			Where("booking_id = ?", booking.ID).
 			First(&flightBooking)
 	}
@@ -312,6 +354,7 @@ func GetBookingDetail(c *gin.Context) {
 			"flight_booking": flightBooking,
 			"voucher":        voucher,
 			"hotel_booking":  hotelBooking,
+			"passengers":     booking.Passengers,
 		},
 	})
 }
@@ -343,14 +386,18 @@ func DownloadTicket(c *gin.Context) {
 	var detail interface{}
 	if booking.Type == models.BookingTypeFlight {
 		var fb models.FlightBooking
-		database.DB.Preload("Flight.DepartureAirport").
+		database.DB.Preload("Flight").
+			Preload("Flight.DepartureAirport").
 			Preload("Flight.ArrivalAirport").
 			Where("booking_id = ?", booking.ID).
 			First(&fb)
 		detail = &fb
 	} else {
 		var hb models.HotelBooking
-		database.DB.Preload("RoomType.Hotel").Where("booking_id = ?", booking.ID).First(&hb)
+		database.DB.Preload("RoomType").
+			Preload("RoomType.Hotel").
+			Where("booking_id = ?", booking.ID).
+			First(&hb)
 		detail = &hb
 	}
 
@@ -391,7 +438,79 @@ func CancelBooking(c *gin.Context) {
 	booking.BookingStatus = models.BookingStatusCancelled
 	database.DB.Save(&booking)
 
+	// Trigger Notification
+	service.CreateBookingNotification(uid, booking.BookingCode, "cancelled")
+
 	c.JSON(http.StatusOK, gin.H{"message": "Booking cancelled successfully"})
+}
+
+func ResendTicketEmail(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	uid := userID.(uint)
+	idOrCode := c.Param("id")
+
+	var booking models.Booking
+	query := database.DB.Preload("User").Preload("Partner").Preload("Passengers").Where("user_id = ?", uid)
+
+	if id, err := strconv.Atoi(idOrCode); err == nil {
+		query = query.Where("id = ?", id)
+	} else {
+		query = query.Where("booking_code = ?", idOrCode)
+	}
+
+	if err := query.First(&booking).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Booking not found"})
+		return
+	}
+
+	if booking.PaymentStatus != models.PaymentStatusPaid {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only paid bookings can have tickets resent"})
+		return
+	}
+
+	var detail interface{}
+	if booking.Type == models.BookingTypeFlight {
+		var fb models.FlightBooking
+		database.DB.Preload("Flight").
+			Preload("Flight.DepartureAirport").
+			Preload("Flight.ArrivalAirport").
+			Where("booking_id = ?", booking.ID).
+			First(&fb)
+		detail = &fb
+	} else {
+		var hb models.HotelBooking
+		database.DB.Preload("RoomType").
+			Preload("RoomType.Hotel").
+			Where("booking_id = ?", booking.ID).
+			First(&hb)
+		detail = &hb
+	}
+
+	// 1. Generate PDF
+	pdfData, err := service.GenerateTicketPDF(booking, detail)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF for email"})
+		return
+	}
+
+	// 2. Send Email
+	emailService := service.NewEmailService()
+	subject := fmt.Sprintf("BataGo E-Ticket Resend - %s", booking.BookingCode)
+	body := fmt.Sprintf(`
+		<h1>E-Ticket Resend</h1>
+		<p>Dear %s,</p>
+		<p>As requested, we are resending your e-ticket/voucher for booking <b>%s</b>.</p>
+		<p>Please find it attached to this email.</p>
+		<p>Thank you for choosing BataGo!</p>
+	`, booking.User.Name, booking.BookingCode)
+
+	filename := fmt.Sprintf("BataGo_Ticket_%s.pdf", booking.BookingCode)
+	if err := emailService.SendEmailWithAttachment(booking.User.Email, subject, body, pdfData, filename); err != nil {
+		// Even if email fails, we don't return 500 because the user might have invalid SMTP but we logged it
+		// and the database/PDF part worked. In our service it returns nil if not configured.
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "E-Ticket has been resent to your email"})
 }
 
 func generateBookingCode(prefix string) string {

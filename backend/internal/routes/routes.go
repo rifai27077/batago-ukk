@@ -80,6 +80,7 @@ func SetupRoutes(r *gin.Engine) {
 		protected.GET("/bookings/:id", handlers.GetBookingDetail)
 		protected.DELETE("/bookings/:id", handlers.CancelBooking)
 		protected.GET("/bookings/:id/ticket", handlers.DownloadTicket)
+		protected.POST("/bookings/:id/resend-ticket", handlers.ResendTicketEmail)
 
 		// Payments
 		protected.POST("/payments/token", handlers.CreatePaymentToken)
@@ -104,6 +105,7 @@ func SetupRoutes(r *gin.Engine) {
 
 		// Partner Bookings
 		protected.GET("/partner/bookings", handlers.GetPartnerBookings)
+		protected.PUT("/partner/bookings/:id/status", handlers.UpdatePartnerBookingStatus)
 
 		// Partner Finance
 		protected.GET("/partner/finance", handlers.GetPartnerFinance)
@@ -136,6 +138,7 @@ func SetupRoutes(r *gin.Engine) {
 		// Partner Routes (Flight Routes)
 		protected.GET("/partner/routes", handlers.GetPartnerRoutes)
 		protected.POST("/partner/routes", handlers.CreatePartnerRoute)
+		protected.PUT("/partner/routes/:id", handlers.UpdatePartnerRoute)
 		protected.DELETE("/partner/routes/:id", handlers.DeletePartnerRoute)
 
 		// Partner Insights
@@ -164,12 +167,15 @@ func SetupRoutes(r *gin.Engine) {
 			admin.GET("/stats", handlers.GetAdminStats)
 
 			admin.GET("/users", handlers.GetAdminUsers)
+			admin.GET("/users/:id", handlers.GetAdminUserDetail)
 			admin.PUT("/users/:id/status", handlers.UpdateUserStatus)
 
 			admin.GET("/partners", handlers.GetAdminPartners)
+			admin.GET("/partners/:id", handlers.GetAdminPartnerDetail)
 			admin.PUT("/partners/:id/status", handlers.UpdatePartnerStatus)
 
 			admin.GET("/bookings", handlers.GetAdminBookings)
+			admin.GET("/bookings/:id", handlers.GetAdminBookingDetail)
 
 			admin.GET("/finance/stats", handlers.GetAdminFinanceStats)
 			admin.GET("/finance/payouts", handlers.GetAdminPayouts)
@@ -196,7 +202,15 @@ func SetupRoutes(r *gin.Engine) {
 
 			admin.GET("/accounts", handlers.GetAdminAccounts)
 			admin.POST("/accounts", handlers.CreateAdminAccount)
+			admin.PUT("/accounts/:id", handlers.UpdateAdminAccount)
 			admin.DELETE("/accounts/:id", handlers.DeleteAdminAccount)
+
+			admin.GET("/settings", handlers.GetPlatformSettings)
+			admin.PUT("/settings", handlers.UpdatePlatformSettings)
+
+			admin.GET("/facilities", handlers.GetAdminFacilities)
+			admin.POST("/facilities", handlers.CreateAdminFacility)
+			admin.DELETE("/facilities/:id", handlers.DeleteAdminFacility)
 
 			admin.GET("/activity-log", handlers.GetAdminActivityLog)
 			admin.GET("/reports", handlers.GetAdminReports)

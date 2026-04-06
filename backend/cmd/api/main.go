@@ -28,12 +28,14 @@ func main() {
 	// Auto Migrate
 	log.Println("AutoMigrate: Updating database schema...")
 	if err := database.DB.AutoMigrate(
+		// New/Independent Tables First
+		&models.Aircraft{},
+		&models.Availability{},
+		&models.Airport{},
+		&models.FlightSeat{},
 		&models.Notification{},
-		&models.User{}, 
-		&models.Partner{}, 
 		&models.Promotion{}, 
 		&models.PartnerStaff{}, 
-		&models.Availability{}, 
 		&models.Flight{},
 		&models.Hotel{},
 		&models.HotelImage{},
@@ -43,13 +45,18 @@ func main() {
 		&models.Facility{},
 		&models.Review{},
 		&models.Favourite{},
+		&models.PlatformSetting{},
 		// Booking & Payment models
 		&models.Booking{},
 		&models.Payment{},
 		&models.ETicket{},
 		&models.HotelVoucher{},
 		&models.FlightBooking{},
+		&models.HotelBooking{},
 		&models.Passenger{},
+		// Core Tables (May have legacy FK issues)
+		&models.User{}, 
+		&models.Partner{}, 
 	); err != nil {
 		log.Printf("AutoMigrate Error: %v", err)
 	} else {

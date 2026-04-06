@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/rifai27077/batago-backend/internal/database"
 	"github.com/rifai27077/batago-backend/internal/models"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // ──────────────────────────────────────────────
@@ -604,7 +606,7 @@ func GetAdminBookings(c *gin.Context) {
 	}
 	var statusCounts []StatusCount
 	db.Raw(`SELECT booking_status, COUNT(*) as count FROM bookings WHERE deleted_at IS NULL GROUP BY booking_status`).Scan(&statusCounts)
-	var confirmed, pending, cancelled int64
+	var confirmed, pending, cancelled, refunded, disputed int64
 	for _, sc := range statusCounts {
 		switch sc.Status {
 		case "CONFIRMED":
@@ -613,6 +615,10 @@ func GetAdminBookings(c *gin.Context) {
 			pending = sc.Count
 		case "CANCELLED":
 			cancelled = sc.Count
+		case "REFUNDED":
+			refunded = sc.Count
+		case "DISPUTED":
+			disputed = sc.Count
 		}
 	}
 
@@ -627,6 +633,8 @@ func GetAdminBookings(c *gin.Context) {
 			"confirmed": confirmed,
 			"pending":   pending,
 			"cancelled": cancelled,
+			"refunded":  refunded,
+			"disputed":  disputed,
 		},
 	})
 }
@@ -1206,6 +1214,26 @@ func DeleteAdminArticle(c *gin.Context) {
 // Admin Accounts CRUD
 // ──────────────────────────────────────────────
 
+func isSuperAdmin(c *gin.Context) bool {
+	db := database.DB
+	adminIDVal, exists := c.Get("user_id")
+	if !exists { return false }
+	
+	adminID := uint(0)
+	switch v := adminIDVal.(type) {
+	case uint: adminID = v
+	case float64: adminID = uint(v)
+	}
+
+	var user models.User
+	if err := db.Where("id = ? AND role = ?", adminID, models.RoleAdmin).First(&user).Error; err != nil {
+		log.Printf("isSuperAdmin check failed: User %v not found", adminID)
+		return false
+	}
+	
+	return user.SubRole == "super_admin"
+}
+
 func GetAdminAccounts(c *gin.Context) {
 	db := database.DB
 	var admins []models.User
@@ -1224,7 +1252,7 @@ func GetAdminAccounts(c *gin.Context) {
 			ID:    a.ID,
 			Name:  a.Name,
 			Email: a.Email,
-			Role:  "super_admin",
+			Role:  a.SubRole,
 			LastActive: formatTimeAgo(a.UpdatedAt),
 		})
 	}
@@ -1233,6 +1261,12 @@ func GetAdminAccounts(c *gin.Context) {
 }
 
 func CreateAdminAccount(c *gin.Context) {
+	// Only super admins can create other admins
+	if !isSuperAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can manage accounts"})
+		return
+	}
+
 	db := database.DB
 	var input struct {
 		Name     string `json:"name" binding:"required"`
@@ -1245,9 +1279,9 @@ func CreateAdminAccount(c *gin.Context) {
 		return
 	}
 
-	// Check if email already exists
+	// Check if email already exists (including soft-deleted)
 	var existing models.User
-	if err := db.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+	if err := db.Unscoped().Where("email = ?", input.Email).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
 		return
 	}
@@ -1263,6 +1297,7 @@ func CreateAdminAccount(c *gin.Context) {
 		Email:      input.Email,
 		Password:   string(hashedPassword),
 		Role:       models.RoleAdmin,
+		SubRole:    input.Role,
 		IsVerified: true,
 	}
 	if err := db.Create(&user).Error; err != nil {
@@ -1271,10 +1306,76 @@ func CreateAdminAccount(c *gin.Context) {
 	}
 
 	logAdminActivity(getAdminID(c), "Created Admin Account", input.Name, "system", "success")
-	c.JSON(http.StatusCreated, gin.H{"data": gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": "super_admin"}})
+	c.JSON(http.StatusCreated, gin.H{"data": gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.SubRole}})
+}
+
+func UpdateAdminAccount(c *gin.Context) {
+	// Only super admins can update other admins
+	if !isSuperAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can manage accounts"})
+		return
+	}
+
+	db := database.DB
+	id := c.Param("id")
+
+	var user models.User
+	if err := db.Where("id = ? AND role = ?", id, models.RoleAdmin).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Admin not found"})
+		return
+	}
+
+	var input struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update fields
+	if input.Name != "" {
+		user.Name = input.Name
+	}
+	if input.Email != "" {
+		// Check email uniqueness if changed (including soft-deleted)
+		if input.Email != user.Email {
+			var existing models.User
+			if err := db.Unscoped().Where("email = ?", input.Email).First(&existing).Error; err == nil {
+				c.JSON(http.StatusConflict, gin.H{"error": "Email already in use"})
+				return
+			}
+			user.Email = input.Email
+		}
+	}
+	if input.Role != "" {
+		user.SubRole = input.Role
+	}
+	if input.Password != "" {
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		user.Password = string(hashedPassword)
+	}
+
+	if err := db.Save(&user).Error; err != nil {
+		log.Printf("UpdateAdminAccount: Failed to save user %d: %v", user.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update admin: " + err.Error()})
+		return
+	}
+
+	logAdminActivity(getAdminID(c), "Updated Admin Account", user.Name, "system", "success")
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.SubRole}})
 }
 
 func DeleteAdminAccount(c *gin.Context) {
+	// Only super admins can delete other admins
+	if !isSuperAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can manage accounts"})
+		return
+	}
+
 	db := database.DB
 	id := c.Param("id")
 	adminID := getAdminID(c)
@@ -1302,6 +1403,11 @@ func DeleteAdminAccount(c *gin.Context) {
 // ──────────────────────────────────────────────
 
 func GetAdminActivityLog(c *gin.Context) {
+	// Only super admins can view activity logs
+	if !isSuperAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can access activity logs"})
+		return
+	}
 	db := database.DB
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -1477,4 +1583,367 @@ func GetAdminReports(c *gin.Context) {
 	})
 }
 
+// ──────────────────────────────────────────────
+// GET /admin/bookings/:id
+// ──────────────────────────────────────────────
 
+func GetAdminBookingDetail(c *gin.Context) {
+	db := database.DB
+	id := c.Param("id")
+
+	var booking models.Booking
+	if err := db.Preload("User").Preload("Partner").
+		Where("booking_code = ? OR id = ?", id, id).
+		First(&booking).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Booking not found"})
+		return
+	}
+
+	commRate := booking.Partner.CommissionRate
+	if commRate == 0 {
+		if booking.Type == models.BookingTypeHotel {
+			commRate = 10
+		} else {
+			commRate = 8
+		}
+	}
+	commission := booking.TotalAmount * commRate / 100
+
+	// Build payment info
+	var payment models.Payment
+	db.Where("booking_id = ?", booking.ID).First(&payment)
+
+	paymentMethod := "N/A"
+	if payment.ID > 0 {
+		paymentMethod = payment.Gateway
+		if paymentMethod == "" {
+			paymentMethod = "Midtrans"
+		}
+	}
+
+	// Build breakdown
+	breakdown := []gin.H{
+		{"label": "Booking Amount", "amount": formatAmount(booking.TotalAmount)},
+		{"label": "Service Fee", "amount": formatAmount(5000)},
+		{"label": "Total Paid", "amount": formatAmount(booking.TotalAmount + 5000)},
+	}
+
+	// Hotel-specific fields
+	var checkIn, checkOut, roomType string
+	var nights, guests int
+
+	if booking.Type == models.BookingTypeHotel {
+		var hb models.HotelBooking
+		if err := db.Preload("RoomType").Where("booking_id = ?", booking.ID).First(&hb).Error; err == nil {
+			checkIn = hb.CheckIn.Format("2 January 2006")
+			checkOut = hb.CheckOut.Format("2 January 2006")
+			roomType = hb.RoomType.Name
+			nights = int(hb.CheckOut.Sub(hb.CheckIn).Hours() / 24)
+			guests = hb.Guests
+		}
+	}
+
+	result := gin.H{
+		"id":           booking.BookingCode,
+		"status":       strings.ToLower(string(booking.BookingStatus)),
+		"guest": gin.H{
+			"name":  booking.User.Name,
+			"email": booking.User.Email,
+			"phone": booking.User.Phone,
+		},
+		"guest_user_id": booking.UserID,
+		"partner":       booking.Partner.CompanyName,
+		"partner_id":    booking.PartnerID,
+		"partner_type":  string(booking.Type),
+		"room_type":     roomType,
+		"check_in":      checkIn,
+		"check_out":     checkOut,
+		"nights":        nights,
+		"guests":        guests,
+		"special_request": "",
+		"payment": gin.H{
+			"method":    paymentMethod,
+			"total":     formatAmount(booking.TotalAmount + 5000),
+			"breakdown": breakdown,
+		},
+		"commission": formatAmount(commission),
+		"created_at": booking.CreatedAt.Format("2 January 2006, 15:04 WIB"),
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+// ──────────────────────────────────────────────
+// GET /admin/users/:id
+// ──────────────────────────────────────────────
+
+func GetAdminUserDetail(c *gin.Context) {
+	db := database.DB
+	id := c.Param("id")
+
+	var user models.User
+	if err := db.First(&user, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Booking stats
+	var totalBookings int64
+	var totalSpent float64
+	db.Model(&models.Booking{}).Where("user_id = ?", user.ID).Count(&totalBookings)
+	db.Model(&models.Booking{}).Where("user_id = ?", user.ID).Select("COALESCE(SUM(total_amount), 0)").Scan(&totalSpent)
+
+	st := "active"
+	if !user.IsVerified {
+		st = "suspended"
+	}
+
+	// Recent bookings
+	type BookingRow struct {
+		ID      string  `json:"id"`
+		Type    string  `json:"type"`
+		Partner string  `json:"partner"`
+		Date    string  `json:"date"`
+		Amount  float64 `json:"amount"`
+		Status  string  `json:"status"`
+	}
+	var bookings []models.Booking
+	db.Preload("Partner").Where("user_id = ?", user.ID).Order("created_at DESC").Limit(10).Find(&bookings)
+
+	var bookingHistory []BookingRow
+	for _, b := range bookings {
+		bookingHistory = append(bookingHistory, BookingRow{
+			ID:      b.BookingCode,
+			Type:    string(b.Type),
+			Partner: b.Partner.CompanyName,
+			Date:    b.CreatedAt.Format("2 Jan 2006"),
+			Amount:  b.TotalAmount,
+			Status:  strings.ToLower(string(b.BookingStatus)),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"id":              user.ID,
+			"name":            user.Name,
+			"email":           user.Email,
+			"phone":           user.Phone,
+			"address":         "",
+			"status":          st,
+			"joined":          user.CreatedAt.Format("2 January 2006"),
+			"total_bookings":  totalBookings,
+			"total_spent":     totalSpent,
+			"loyalty_points":  0,
+		},
+		"booking_history": bookingHistory,
+	})
+}
+
+// ──────────────────────────────────────────────
+// GET /admin/partners/:id
+// ──────────────────────────────────────────────
+
+func GetAdminPartnerDetail(c *gin.Context) {
+	db := database.DB
+	id := c.Param("id")
+
+	var partner models.Partner
+	if err := db.Preload("User").First(&partner, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Partner not found"})
+		return
+	}
+
+	// Stats
+	var totalBookings int64
+	var totalRevenue float64
+	db.Model(&models.Booking{}).Where("partner_id = ?", partner.ID).Count(&totalBookings)
+	db.Raw(`
+		SELECT COALESCE(SUM(pay.amount), 0)
+		FROM bookings b
+		JOIN payments pay ON pay.booking_id = b.id AND pay.status = 'PAID' AND pay.deleted_at IS NULL
+		WHERE b.partner_id = ? AND b.deleted_at IS NULL
+	`, partner.ID).Scan(&totalRevenue)
+
+	var avgRating float64
+	db.Model(&models.Review{}).
+		Joins("JOIN bookings ON bookings.id = reviews.booking_id").
+		Where("bookings.partner_id = ?", partner.ID).
+		Select("COALESCE(AVG(reviews.rating), 0)").Scan(&avgRating)
+
+	st := strings.ToLower(string(partner.Status))
+	if st == "in_review" || st == "draft" {
+		st = "pending"
+	}
+
+	commStr := strconv.FormatFloat(partner.CommissionRate, 'f', 0, 64) + "%"
+	if partner.CommissionRate == 0 {
+		if partner.Type == models.PartnerTypeHotel {
+			commStr = "10%"
+		} else {
+			commStr = "8%"
+		}
+	}
+
+	// Recent bookings
+	type RBRow struct {
+		ID     string  `json:"id"`
+		Guest  string  `json:"guest"`
+		Date   string  `json:"date"`
+		Amount float64 `json:"amount"`
+		Status string  `json:"status"`
+	}
+	var bookings []models.Booking
+	db.Preload("User").Where("partner_id = ?", partner.ID).Order("created_at DESC").Limit(5).Find(&bookings)
+
+	var recentBookings []RBRow
+	for _, b := range bookings {
+		recentBookings = append(recentBookings, RBRow{
+			ID:     b.BookingCode,
+			Guest:  b.User.Name,
+			Date:   b.CreatedAt.Format("2 Jan 2006"),
+			Amount: b.TotalAmount,
+			Status: strings.ToLower(string(b.BookingStatus)),
+		})
+	}
+
+	pType := string(partner.Type)
+	if pType == "flight" {
+		pType = "airline"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"id":             partner.ID,
+			"name":           partner.CompanyName,
+			"type":           pType,
+			"status":         st,
+			"email":          partner.User.Email,
+			"phone":          partner.User.Phone,
+			"address":        partner.Address,
+			"commission":     commStr,
+			"joined":         partner.CreatedAt.Format("2 January 2006"),
+			"total_revenue":  totalRevenue,
+			"total_bookings": totalBookings,
+			"rating":         math.Round(avgRating*10) / 10,
+		},
+		"recent_bookings": recentBookings,
+	})
+}
+
+// ──────────────────────────────────────────────
+// Platform Settings
+// ──────────────────────────────────────────────
+
+func GetPlatformSettings(c *gin.Context) {
+	db := database.DB
+	var settings []models.PlatformSetting
+	db.Find(&settings)
+
+	result := make(map[string]string)
+	for _, s := range settings {
+		result[s.Key] = s.Value
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+func UpdatePlatformSettings(c *gin.Context) {
+	if !isSuperAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can manage platform settings"})
+		return
+	}
+	db := database.DB
+	var input map[string]string
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	for key, val := range input {
+		var setting models.PlatformSetting
+		if err := db.Unscoped().Where("`key` = ?", key).First(&setting).Error; err != nil {
+			setting = models.PlatformSetting{Key: key, Value: val}
+			if err := db.Create(&setting).Error; err != nil {
+				log.Printf("UpdatePlatformSettings: Failed to create key %s: %v", key, err)
+			}
+		} else {
+			setting.Value = val
+			setting.DeletedAt = gorm.DeletedAt{} // Restore if soft-deleted
+			if err := db.Save(&setting).Error; err != nil {
+				log.Printf("UpdatePlatformSettings: Failed to save key %s: %v", key, err)
+			}
+		}
+	}
+
+	logAdminActivity(getAdminID(c), "Updated Platform Settings", "system", "settings", "success")
+	c.JSON(http.StatusOK, gin.H{"message": "Settings updated successfully"})
+}
+
+// ──────────────────────────────────────────────
+// Master Data (Facilities)
+// ──────────────────────────────────────────────
+
+func GetAdminFacilities(c *gin.Context) {
+	db := database.DB
+	var facilities []models.Facility
+	db.Find(&facilities)
+
+	type FacilityResponse struct {
+		ID   uint   `json:"id"`
+		Name string `json:"name"`
+		Icon string `json:"icon"`
+	}
+
+	var result []FacilityResponse
+	for _, f := range facilities {
+		result = append(result, FacilityResponse{
+			ID:   f.ID,
+			Name: f.Name,
+			Icon: f.Icon,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+func CreateAdminFacility(c *gin.Context) {
+	if !isSuperAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can manage master data"})
+		return
+	}
+	db := database.DB
+	var input struct {
+		Name string `json:"name" binding:"required"`
+		Icon string `json:"icon"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	facility := models.Facility{Name: input.Name, Icon: input.Icon}
+	if err := db.Create(&facility).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create facility"})
+		return
+	}
+
+	logAdminActivity(getAdminID(c), "Created Facility", input.Name, "master_data", "success")
+	c.JSON(http.StatusCreated, gin.H{"data": facility})
+}
+
+func DeleteAdminFacility(c *gin.Context) {
+	if !isSuperAdmin(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can manage master data"})
+		return
+	}
+	db := database.DB
+	id := c.Param("id")
+
+	if err := db.Delete(&models.Facility{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete facility"})
+		return
+	}
+
+	logAdminActivity(getAdminID(c), "Deleted Facility", id, "master_data", "success")
+	c.JSON(http.StatusOK, gin.H{"message": "Facility deleted"})
+}
