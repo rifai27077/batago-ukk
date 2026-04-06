@@ -79,8 +79,6 @@ export default function ReviewsPage() {
     }
   };
 
-// Add at the top:
-// import { getPartnerReviews, replyToPartnerReview } from "@/lib/api";
   useEffect(() => {
     fetchReviews();
   }, []);
@@ -89,7 +87,6 @@ export default function ReviewsPage() {
     if (!replyText.trim()) return;
     setIsReplying(true);
     try {
-      const { replyToPartnerReview } = await import("@/lib/api");
       await replyToPartnerReview(reviewId, replyText);
       
       // Optimistic Update

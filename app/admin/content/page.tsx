@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MapPin, Image, FileText, Plus, Pencil, Trash2, Globe, Eye } from "lucide-react";
 import AddEditDestinationModal from "@/components/admin/modals/AddEditDestinationModal";
 import AddEditBannerModal from "@/components/admin/modals/AddEditBannerModal";
@@ -83,7 +83,7 @@ export default function AdminContentPage() {
   const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       if (tab === "destinations") {
@@ -101,11 +101,11 @@ export default function AdminContentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tab]);
 
   useEffect(() => {
     loadData();
-  }, [tab]);
+  }, [loadData]);
 
   const handleAdd = () => {
     if (tab === "destinations") {

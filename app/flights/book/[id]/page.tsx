@@ -8,7 +8,6 @@ import Link from "next/link";
 import { ChevronRight, Clock, ShieldCheck, Loader2 } from "lucide-react";
 import { getFlightDetail, createFlightBooking, createPaymentToken, getToken, FlightResult } from "@/lib/api";
 import BookingInfoCard from "@/components/flights/book/BookingInfoCard";
-
 function formatPrice(amount: number): string {
   return `Rp ${amount.toLocaleString("id-ID")}`;
 }
@@ -102,11 +101,12 @@ export default function FlightBookingPage({ params }: PageProps) {
         [{ name: `${firstName} ${lastName}`, type: "adult" }]
       );
 
-      // Get Snap Token
+      // Get Payment URL
       try {
         const paymentRes = await createPaymentToken(res.booking_id);
         
         if (typeof window !== "undefined" && (window as any).snap) {
+          // Launch Midtrans popup
           (window as any).snap.pay(paymentRes.snap_token, {
             onSuccess: function() {
               router.push(`/booking/success?code=${res.booking_code}`);
@@ -122,12 +122,11 @@ export default function FlightBookingPage({ params }: PageProps) {
             }
           });
         } else {
-          // Fallback to redirect URL if snap.js not loaded
+          // Fallback to standard redirect if snap is not loaded
           window.location.href = paymentRes.redirect_url;
         }
       } catch (payErr) {
         console.error("Payment token error:", payErr);
-        // If payment token fails, still redirect to placed (user can pay later)
         router.push(`/booking/placed?code=${res.booking_code}`);
       }
 
@@ -240,6 +239,7 @@ export default function FlightBookingPage({ params }: PageProps) {
                     </div>
                   </div>
                 </div>
+
 
                 <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 flex items-center gap-6">
                     <p className="text-sm text-muted mb-1 text-center w-full">By clicking Complete Booking, you agree to our <span className="text-primary cursor-pointer hover:underline">Terms</span> and <span className="text-primary cursor-pointer hover:underline">Privacy Policy</span>.</p>

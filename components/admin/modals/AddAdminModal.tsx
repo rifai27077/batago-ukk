@@ -1,20 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, User, Mail, Shield, CheckCircle2 } from "lucide-react";
 
 interface AddAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: any) => void;
+  editData?: any;
 }
 
-export default function AddAdminModal({ isOpen, onClose, onSave }: AddAdminModalProps) {
+export default function AddAdminModal({ isOpen, onClose, onSave, editData }: AddAdminModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     role: "Support",
+    password: "",
   });
+
+  const roleLabelsInv: Record<string, string> = {
+    super_admin: "Super Admin",
+    support: "Support",
+    finance: "Finance",
+  };
+
+  useEffect(() => {
+    if (editData) {
+      setFormData({
+        name: editData.name || "",
+        email: editData.email || "",
+        role: roleLabelsInv[editData.role] || "Support",
+        password: "", // Don't show existing hash
+      });
+    } else {
+      setFormData({
+        name: "",
+        email: "",
+        role: "Support",
+        password: "",
+      });
+    }
+  }, [editData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -22,12 +48,20 @@ export default function AddAdminModal({ isOpen, onClose, onSave }: AddAdminModal
     { id: "super_admin", label: "Super Admin", desc: "Full access to all settings" },
     { id: "support", label: "Support", desc: "Manage users and bookings" },
     { id: "finance", label: "Finance", desc: "Manage payouts and refunds" },
-    { id: "content", label: "Content", desc: "Manage banners and articles" },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ ...formData, id: Date.now(), status: "active", lastActive: "Just now" });
+    const payload = editData 
+      ? { ...formData, id: editData.id }
+      : { ...formData };
+    
+    // Remove empty password on edit
+    if (editData && !payload.password) {
+      delete (payload as any).password;
+    }
+
+    onSave(payload);
     onClose();
   };
 
@@ -40,7 +74,9 @@ export default function AddAdminModal({ isOpen, onClose, onSave }: AddAdminModal
       
       <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
         <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Admin</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            {editData ? "Edit Admin" : "Add New Admin"}
+          </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl text-gray-400">
             <X className="w-5 h-5" />
           </button>
@@ -78,7 +114,19 @@ export default function AddAdminModal({ isOpen, onClose, onSave }: AddAdminModal
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Assign Role</label>
+             <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Password {editData && "(Leave blank to keep current)"}</label>
+             <div className="relative">
+              <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="password"
+                required={!editData}
+                placeholder={editData ? "••••••••" : "Enter password"}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-xl py-3 pl-11 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none dark:text-white"
+              />
+            </div>
+          </div>
             <div className="grid grid-cols-1 gap-2">
               {roles.map((role) => (
                 <button
@@ -102,14 +150,13 @@ export default function AddAdminModal({ isOpen, onClose, onSave }: AddAdminModal
                 </button>
               ))}
             </div>
-          </div>
 
           <button 
             type="submit"
-            disabled={!formData.name || !formData.email || !formData.role}
+            disabled={!formData.name || !formData.email || (!editData && !formData.password) || !formData.role}
             className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
           >
-            Create Admin Account
+            {editData ? "Update Admin Account" : "Create Admin Account"}
           </button>
         </form>
       </div>

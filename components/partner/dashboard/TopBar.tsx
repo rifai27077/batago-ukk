@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Menu, Bell, ChevronDown, User, Settings, LogOut, Check, BellOff, Sun, Moon, Plane, Building2 } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 import { useDateRange } from "./DateRangeContext";
@@ -16,6 +17,7 @@ interface TopBarProps {
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { partnerType, setPartnerType } = usePartner();
+  const router = useRouter();
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
@@ -45,8 +47,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
     fetchUser();
     fetchNotifs();
     
-    // Refresh notifications every minute
-    const interval = setInterval(fetchNotifs, 60000);
+    // Refresh notifications every 15 seconds for responsiveness
+    const interval = setInterval(fetchNotifs, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -117,45 +119,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
 
       {/* Right: Date Filter + Theme Toggle + Notifications + Profile */}
       <div className="flex items-center gap-2">
-         {/* Partner Type Toggle (DEV ONLY) */}
-         <div className="hidden lg:flex items-center bg-gray-50 dark:bg-slate-700 rounded-xl border border-gray-100 dark:border-slate-600 p-1 mr-2">
-            <button
-              onClick={() => setPartnerType("hotel")}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${partnerType === "hotel" ? "bg-white dark:bg-slate-600 text-primary shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Hotel</span>
-            </button>
-            <button
-              onClick={() => setPartnerType("airline")}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${partnerType === "airline" ? "bg-white dark:bg-slate-600 text-sky-500 shadow-sm" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
-            >
-              <Plane className="w-3.5 h-3.5" />
-              <span>Airline</span>
-            </button>
-         </div>
 
-         {/* Global Date Filter - NEW */}
-        <div className="hidden md:flex items-center bg-gray-50 dark:bg-slate-700 rounded-xl border border-gray-100 dark:border-slate-600 p-1 mr-2">
-          <button 
-            onClick={() => handleRangeChange("30d")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${activeRange === "30d" ? "bg-white dark:bg-slate-600 text-gray-800 dark:text-white" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
-          >
-            30 Days
-          </button>
-          <button 
-            onClick={() => handleRangeChange("7d")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${activeRange === "7d" ? "bg-white dark:bg-slate-600 text-gray-800 dark:text-white" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
-          >
-            7 Days
-          </button>
-          <button 
-            onClick={() => handleRangeChange("month")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${activeRange === "month" ? "bg-white dark:bg-slate-600 text-gray-800 dark:text-white" : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"}`}
-          >
-            Month
-          </button>
-        </div>
 
         {/* Dark Mode Toggle */}
         <button
@@ -262,13 +226,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               </div>
               <div className="py-1">
                 <button 
-                  onClick={() => window.location.href = "/partner/dashboard/settings"}
+                  onClick={() => { setShowProfile(false); router.push("/partner/dashboard/settings"); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   <User className="w-4 h-4" /> Profile
                 </button>
                 <button 
-                  onClick={() => window.location.href = "/partner/dashboard/settings"}
+                  onClick={() => { setShowProfile(false); router.push("/partner/dashboard/settings"); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   <Settings className="w-4 h-4" /> Settings
@@ -278,7 +242,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                 <button
                   onClick={() => {
                     logout();
-                    window.location.href = "/";
+                    router.push("/");
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                 >

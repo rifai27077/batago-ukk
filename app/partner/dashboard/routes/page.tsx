@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Search, Map, Calendar, ArrowRight, Loader2 } from "lucide-react";
 import AddRouteModal from "@/components/partner/dashboard/AddRouteModal";
 import RouteCard from "@/components/partner/dashboard/RouteCard";
-import { getPartnerRoutes, createPartnerRoute, deletePartnerRoute, PartnerRoute } from "@/lib/api";
+import { getPartnerRoutes, createPartnerRoute, updatePartnerRoute, deletePartnerRoute, PartnerRoute } from "@/lib/api";
 
 export default function RoutesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -14,6 +14,8 @@ export default function RoutesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("");
+  const [editingRoute, setEditingRoute] = useState<PartnerRoute | null>(null);
+  const [isViewMode, setIsViewMode] = useState(false);
 
   const fetchRoutes = useCallback(async () => {
     try {
@@ -39,11 +41,33 @@ export default function RoutesPage() {
         duration: newRoute.duration,
         aircraft: newRoute.aircraft,
         base_price: Number(newRoute.basePrice) || 0,
+        classes: newRoute.classes ? newRoute.classes.filter((c:any) => c.active).map((c:any) => ({ class: c.class, price: Number(c.price), capacity: Number(c.capacity) })) : undefined,
+        schedule: newRoute.schedule || [],
       });
       setIsAddModalOpen(false);
       fetchRoutes();
     } catch (err: any) {
       alert(err.message || "Failed to create route");
+    }
+  };
+
+  const handleUpdateRoute = async (data: any) => {
+    if (!editingRoute) return;
+    try {
+      await updatePartnerRoute((editingRoute as any).ID || editingRoute.id, {
+        origin: data.origin,
+        destination: data.destination,
+        flight_number: data.flightNumber,
+        duration: data.duration,
+        aircraft: data.aircraft,
+        base_price: Number(data.basePrice) || 0,
+        classes: data.classes ? data.classes.filter((c:any) => c.active).map((c:any) => ({ class: c.class, price: Number(c.price), capacity: Number(c.capacity) })) : undefined,
+        schedule: data.schedule || [],
+      });
+      setEditingRoute(null);
+      fetchRoutes();
+    } catch (err: any) {
+      alert(err.message || "Failed to update route");
     }
   };
 
@@ -88,6 +112,16 @@ export default function RoutesPage() {
         onClose={() => setIsAddModalOpen(false)} 
         onSave={handleSaveRoute} 
       />
+
+      {editingRoute && (
+        <AddRouteModal 
+          isOpen={true} 
+          onClose={() => { setEditingRoute(null); setIsViewMode(false); }} 
+          onSave={handleUpdateRoute}
+          initialData={editingRoute}
+          isViewOnly={isViewMode}
+        />
+      )}
 
       {error && (
         <div className="bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm">{error}</div>
@@ -158,7 +192,13 @@ export default function RoutesPage() {
       {/* Routes List */}
       <div className="grid grid-cols-1 gap-4">
         {routes.map((route) => (
-           <RouteCard key={route.id} route={route} onDelete={() => handleDelete(route.id)} />
+           <RouteCard 
+             key={route.id} 
+             route={route} 
+             onView={() => { setEditingRoute(route); setIsViewMode(true); }}
+             onEdit={() => { setEditingRoute(route); setIsViewMode(false); }}
+             onDelete={() => handleDelete(route.id)} 
+           />
         ))}
 
         {routes.length === 0 && (

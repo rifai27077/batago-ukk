@@ -24,28 +24,30 @@ export default function FavouritesPage() {
         ...f.hotel,
         isFavourite: true,
         // Map backend fields to frontend props if necessary
-        image: f.hotel?.images?.find((img: any) => img.is_primary)?.url || f.hotel?.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945",
+        image: f.hotel?.images?.find((img: any) => img.is_primary)?.url || f.hotel?.images?.[0]?.url || "",
         location: f.hotel?.address || f.hotel?.city?.name || "Unknown",
         pricePerNight: `Rp ${f.hotel?.base_price?.toLocaleString() || "0"}`,
         amenities: f.hotel?.facilities?.map((fac: any) => fac.name) || ["Free Wifi", "Air Conditioning"]
       }));
 
-      const flightFavs = allFavs.filter((f: any) => f.type === "flight").map((f: any) => ({
-        ...f.flight,
-        isFavourite: true,
-        // Map backend fields to frontend props
-        id: f.flight?.ID,
-        airline: f.flight?.airline || "Unknown",
-        logo: "https://www.vectorlogo.zone/logos/emirates/emirates-icon.svg", // Mock logo for now
-        departureTime: f.flight?.departure_time ? new Date(f.flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "12:00 PM",
-        arrivalTime: f.flight?.arrival_time ? new Date(f.flight.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "02:00 PM",
-        duration: `${f.flight?.duration || 0}m`,
-        price: `Rp ${f.flight?.price?.toLocaleString() || "1.200.000"}`,
-        rating: 4.2,
-        reviews: 54,
-        type: "Non-stop",
-        route: `${f.flight?.departure_airport?.code || "ABC"} - ${f.flight?.arrival_airport?.code || "XYZ"}`
-      }));
+      const flightFavs = allFavs.filter((f: any) => f.type === "flight").map((f: any) => {
+        const airlineName = f.flight?.airline || "Unknown";
+        return {
+          ...f.flight,
+          isFavourite: true,
+          id: f.flight?.ID,
+          airline: airlineName,
+          logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(airlineName)}&background=random&size=128`,
+          departureTime: f.flight?.departure_time ? new Date(f.flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "12:00 PM",
+          arrivalTime: f.flight?.arrival_time ? new Date(f.flight.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "02:00 PM",
+          duration: `${f.flight?.duration || 0}m`,
+          price: `Rp ${f.flight?.price?.toLocaleString() || "1.200.000"}`,
+          rating: 4.2,
+          reviews: 54,
+          type: "Non-stop",
+          route: `${f.flight?.departure_airport?.code || "ABC"} - ${f.flight?.arrival_airport?.code || "XYZ"}`
+        };
+      });
 
       setPlaces(hotelFavs);
       setFlights(flightFavs);

@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import { getHotelDetail, createReview, getToken, HotelResult, RoomTypeResult, ReviewResult } from "@/lib/api";
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80";
+const FALLBACK_IMAGE = "";
 
 function formatPrice(amount: number): string {
   return `Rp ${amount.toLocaleString("id-ID")}`;
@@ -114,7 +114,9 @@ export default function HotelDetailPage({ params }: PageProps) {
     ? Math.min(...rooms.map(r => r.base_price))
     : 0;
 
-  const facilities = hotel.facilities || [];
+  const facilities = Array.from(
+    new Map((hotel.facilities || []).map(f => [f.name, f])).values()
+  );
   const avgRating = hotel.rating || 0;
   const totalReviews = hotel.total_reviews || 0;
 
@@ -168,30 +170,7 @@ export default function HotelDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Image Gallery */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-[500px] mb-12 rounded-3xl overflow-hidden">
-            <div className="md:col-span-2 md:row-span-2 relative h-[300px] md:h-auto group cursor-pointer">
-              <Image 
-                src={hotelImages[0]} 
-                alt={hotel.name} 
-                fill 
-                className="object-cover transition-transform duration-700 group-hover:scale-105" 
-                priority
-              />
-            </div>
-            <div className="hidden md:grid grid-cols-2 col-span-2 row-span-2 gap-4">
-               {hotelImages.slice(1, 5).map((img, idx) => (
-                 <div key={idx} className="relative h-full group cursor-pointer overflow-hidden rounded-xl">
-                    <Image 
-                      src={img} 
-                      alt={`${hotel.name} Gallery ${idx + 1}`} 
-                      fill 
-                      className="object-cover transition-transform duration-700 group-hover:scale-110" 
-                    />
-                 </div>
-               ))}
-            </div>
-          </div>
+
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             {/* Left Content */}
@@ -229,13 +208,9 @@ export default function HotelDetailPage({ params }: PageProps) {
                   <div className="space-y-6">
                     {rooms.map((room) => {
                       const features = parseFeatures(room.features);
-                      const roomImage = room.images?.[0]?.url || FALLBACK_IMAGE;
                       
                       return (
                         <div key={room.ID} className="border border-gray-200 rounded-2xl p-6 flex flex-col md:flex-row gap-6 hover:shadow-lg transition-all duration-300">
-                          <div className="w-full md:w-64 h-48 relative rounded-xl overflow-hidden shrink-0">
-                            <Image src={roomImage} alt={room.name} fill className="object-cover" />
-                          </div>
                           <div className="flex-1 flex flex-col justify-between">
                              <div>
                                <div className="flex justify-between items-start mb-2">

@@ -8,6 +8,7 @@ interface PromotionFormProps {
   onClose: () => void;
   onSave: (data: any) => void;
   initialData?: any;
+  partnerType?: string;
 }
 
 const promoTypes = [
@@ -49,7 +50,7 @@ const promoTypes = [
   },
 ];
 
-export default function PromotionForm({ isOpen, onClose, onSave, initialData }: PromotionFormProps) {
+export default function PromotionForm({ isOpen, onClose, onSave, initialData, partnerType }: PromotionFormProps) {
   const [step, setStep] = useState(1);
   const [availableListings, setAvailableListings] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -60,7 +61,7 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
     startDate: "",
     endDate: "",
     listings: [] as string[],
-    minStay: 1,
+    minPrice: 0,
     autoApply: true,
   });
 
@@ -72,16 +73,28 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
     startDate: "",
     endDate: "",
     listings: [] as string[],
-    minStay: 1,
+    minPrice: 0,
     autoApply: true,
   };
 
   useEffect(() => {
     async function fetchListings() {
       try {
-        const { getPartnerListings } = await import("@/lib/api");
-        const res = await getPartnerListings({ limit: 100 });
-        setAvailableListings(res.data || []);
+        if (partnerType === "airline") {
+          const { getPartnerRoutes } = await import("@/lib/api");
+          const res = await getPartnerRoutes(undefined, undefined, 1, 100);
+          setAvailableListings(res.data?.map(route => ({
+             ID: route.id,
+             name: `${route.origin} → ${route.destination}`,
+             type: "Flight Route",
+             city: { name: `Flight ${route.flight_number || (route as any).flightNumber}` },
+             address: ""
+          })) || []);
+        } else {
+          const { getPartnerListings } = await import("@/lib/api");
+          const res = await getPartnerListings({ limit: 100 });
+          setAvailableListings(res.data || []);
+        }
       } catch (err) {
         console.error("Failed to fetch listings for promotion", err);
       }
@@ -94,7 +107,7 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
         setStep(1);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, partnerType, initialData]);
 
   useEffect(() => {
     if (initialData) {
@@ -216,11 +229,11 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Min. Stay (Nights)</label>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Min. Price (Rp)</label>
                   <input
                     type="number"
-                    value={formData.minStay}
-                    onChange={(e) => setFormData({ ...formData, minStay: Number(e.target.value) })}
+                    value={formData.minPrice}
+                    onChange={(e) => setFormData({ ...formData, minPrice: Number(e.target.value) })}
                     className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/30 outline-none transition-all dark:text-white"
                   />
                 </div>
@@ -269,7 +282,7 @@ export default function PromotionForm({ isOpen, onClose, onSave, initialData }: 
 
           {step === 3 && (
             <div className="space-y-4">
-              <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">Apply to Properties</label>
+              <label className="block text-sm font-bold text-gray-700 dark:text-slate-200 mb-2">{partnerType === "airline" ? "Apply to Routes" : "Apply to Properties"}</label>
               <div className="space-y-2">
                 {availableListings.length > 0 ? availableListings.map((listing) => (
                   <label 

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +11,7 @@ import {
   Wallet,
   FileText,
   Settings,
+  Shield,
   LogOut,
   X,
   ChevronLeft,
@@ -19,15 +21,17 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { label: "Overview", href: "/admin", icon: LayoutDashboard },
-  { label: "Notifications", href: "/admin/notifications", icon: Bell },
-  { label: "Activity Log", href: "/admin/activity-log", icon: History },
-  { label: "Users", href: "/admin/users", icon: Users },
-  { label: "Partners", href: "/admin/partners", icon: Building2 },
-  { label: "Bookings", href: "/admin/bookings", icon: CalendarCheck },
-  { label: "Finance", href: "/admin/finance", icon: Wallet },
-  { label: "Content", href: "/admin/content", icon: FileText },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+  { label: "Overview", href: "/admin", icon: LayoutDashboard, roles: ["super_admin", "support", "finance", "content"] },
+  { label: "Notifications", href: "/admin/notifications", icon: Bell, roles: ["super_admin", "support", "finance", "content"] },
+  { label: "Activity Log", href: "/admin/activity-log", icon: History, roles: ["super_admin"] },
+  { label: "Users", href: "/admin/users", icon: Users, roles: ["super_admin", "support"] },
+  { label: "Partners", href: "/admin/partners", icon: Building2, roles: ["super_admin", "support"] },
+  { label: "Bookings", href: "/admin/bookings", icon: CalendarCheck, roles: ["super_admin", "support", "finance"] },
+  { label: "Finance", href: "/admin/finance", icon: Wallet, roles: ["super_admin", "finance"] },
+  // { label: "Content", href: "/admin/content", icon: FileText, roles: ["super_admin", "content"] },
+  { label: "Team", href: "/admin/team", icon: Shield, roles: ["super_admin"] },
+  // { label: "Settings", href: "/admin/settings", icon: Settings, roles: ["super_admin"] },
+  { label: "Reports", href: "/admin/reports", icon: FileText, roles: ["super_admin", "finance"] },
 ];
 
 interface AdminSidebarProps {
@@ -39,10 +43,33 @@ interface AdminSidebarProps {
 
 export default function AdminSidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: AdminSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [subRole, setSubRole] = useState<string>("");
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const api = await import("@/lib/api");
+        const res = await api.getProfile();
+        // Assuming sub_role is returned in user object or somewhere
+        if (res.user && (res.user as any).sub_role) {
+          setSubRole((res.user as any).sub_role);
+        }
+      } catch (err) {
+        console.error("Failed to fetch admin profile", err);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("batago_token");
+    router.push("/login");
   };
 
   return (
@@ -102,43 +129,45 @@ export default function AdminSidebar({ isOpen, onClose, isCollapsed, onToggleCol
 
         {/* Navigation */}
         <nav className={`flex-1 ${isCollapsed ? "px-2 pt-4 overflow-hidden" : "px-3 overflow-y-auto"} space-y-0.5 scrollbar-none`}>
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                title={isCollapsed ? item.label : undefined}
-                className={`
-                  flex items-center gap-3 rounded-xl text-[13px] font-medium
-                  transition-all duration-200 group relative
-                  ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}
-                  ${active
-                    ? "bg-primary text-white shadow-md shadow-primary/20"
-                    : "text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 hover:bg-gray-100/80 dark:hover:bg-slate-700"
-                  }
-                `}
-              >
-                <div className={`flex items-center justify-center ${isCollapsed ? "" : "w-8 h-8 rounded-lg"}`}>
-                  <item.icon className={`w-[18px] h-[18px] shrink-0 ${active ? "text-white" : "text-gray-400 dark:text-slate-500 group-hover:text-gray-700 dark:group-hover:text-slate-300"} transition-colors`} />
-                </div>
-                {!isCollapsed && <span>{item.label}</span>}
+          {navItems
+            .filter(item => !subRole || item.roles.includes(subRole))
+            .map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  title={isCollapsed ? item.label : undefined}
+                  className={`
+                    flex items-center gap-3 rounded-xl text-[13px] font-medium
+                    transition-all duration-200 group relative
+                    ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}
+                    ${active
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 hover:bg-gray-100/80 dark:hover:bg-slate-700"
+                    }
+                  `}
+                >
+                  <div className={`flex items-center justify-center ${isCollapsed ? "" : "w-8 h-8 rounded-lg"}`}>
+                    <item.icon className={`w-[18px] h-[18px] shrink-0 ${active ? "text-white" : "text-gray-400 dark:text-slate-500 group-hover:text-gray-700 dark:group-hover:text-slate-300"} transition-colors`} />
+                  </div>
+                  {!isCollapsed && <span>{item.label}</span>}
 
-                {/* Active indicator bar */}
-                {active && !isCollapsed && (
-                  <span className="absolute right-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary/30 rounded-l-full" />
-                )}
+                  {/* Active indicator bar */}
+                  {active && !isCollapsed && (
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary/30 rounded-l-full" />
+                  )}
 
-                {/* Tooltip for collapsed */}
-                {isCollapsed && (
-                  <span className="absolute left-full ml-3 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-60">
-                    {item.label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+                  {/* Tooltip for collapsed */}
+                  {isCollapsed && (
+                    <span className="absolute left-full ml-3 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-60">
+                      {item.label}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
         </nav>
 
         {/* Footer */}
@@ -160,6 +189,7 @@ export default function AdminSidebar({ isOpen, onClose, isCollapsed, onToggleCol
             )}
           </button>
           <button
+            onClick={handleLogout}
             className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[13px] font-medium text-gray-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 transition-colors ${
               isCollapsed ? "justify-center px-2" : ""
             }`}

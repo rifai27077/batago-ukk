@@ -39,12 +39,6 @@ export default function AccountSidebar() {
       icon: Shield,
       description: "Password and security",
     },
-    {
-      name: "Payment Methods",
-      href: "/account/payment-methods",
-      icon: CreditCard,
-      description: "Manage payment cards",
-    },
   ];
 
   // Add "Become a Partner" or "Partner Status" if user is a regular USER or has a pending app

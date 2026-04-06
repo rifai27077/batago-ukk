@@ -29,7 +29,13 @@ interface Transaction {
   type: "earning" | "payout" | "refund";
 }
 
-
+interface PayoutRequest {
+  id: string;
+  amount: number;
+  status: string;
+  requestedAt: string;
+  bankAccount: any;
+}
 
 const formatCurrency = (v: number) => {
   if (v >= 1000000) return `${(v / 1000000).toFixed(1)}jt`;
@@ -46,9 +52,11 @@ export default function FinancePage() {
   // Finance State
   const [balance, setBalance] = useState("Rp 0");
   const [pending, setPending] = useState("Rp 0");
+  const [revenueGrowth, setRevenueGrowth] = useState<string | null>(null);
   const [totalEarned, setTotalEarned] = useState("Rp 0");
   const [commission, setCommission] = useState("Rp 0");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,6 +85,10 @@ export default function FinancePage() {
           setBalance(fmt(res.summary.net_revenue));
           setCommission(fmt(res.summary.commission));
           setTotalEarned(fmt(res.summary.total_revenue));
+          setPending(fmt(res.summary.pending || 0));
+          if (res.summary.growth !== undefined) {
+            setRevenueGrowth(`${res.summary.growth > 0 ? '+' : ''}${res.summary.growth}%`);
+          }
         }
         if (res.transactions) {
           const mapped: Transaction[] = res.transactions.map((t: any) => ({
@@ -90,6 +102,16 @@ export default function FinancePage() {
             type: t.type,
           }));
           setTransactions(mapped);
+        }
+        if (res.payouts) {
+          const mappedPayouts: PayoutRequest[] = res.payouts.map((p: any) => ({
+            id: String(p.ID),
+            amount: p.amount,
+            status: p.status,
+            requestedAt: new Date(p.requested_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+            bankAccount: p.BankAccount,
+          }));
+          setPayouts(mappedPayouts);
         }
         if (res.chart_data) {
           setRevenueData(res.chart_data);
@@ -108,6 +130,15 @@ export default function FinancePage() {
     fetchFinance();
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("openModal") === "bank") {
+        setIsSettingsOpen(true);
+      }
+    }
+  }, []);
+
 
 
   const totalPages = Math.ceil(transactions.length / itemsPerPage);
@@ -124,10 +155,6 @@ export default function FinancePage() {
     setItemsPerPage(num);
     setCurrentPage(1);
   };
-
-// Add these imports at the top
-// import { getPayoutSettings, updatePayoutSettings, requestEarlyPayout } from "@/lib/api";
-// import PayoutSettingsModal from "@/components/partner/dashboard/PayoutSettingsModal";
 
   const handleSaveSettings = async (data: any) => {
     try {
@@ -209,7 +236,7 @@ export default function FinancePage() {
               <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-500" />
             </div>
             <span className="flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-500 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" /> +12%
+              <ArrowUpRight className="w-3 h-3" /> {revenueGrowth || '—'}
             </span>
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{totalEarned}</h3>
@@ -396,7 +423,51 @@ export default function FinancePage() {
         </div>
       </div>
 
-      <PayoutSettingsModal 
+      {/* Payout History */}
+      {payouts.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col mt-5">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Payout History</h3>
+          </div>
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50/80 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 text-xs tracking-wider">
+                  <th className="text-left px-5 py-3 font-semibold">Date</th>
+                  <th className="text-left px-5 py-3 font-semibold">Bank Account</th>
+                  <th className="text-left px-5 py-3 font-semibold">Status</th>
+                  <th className="text-right px-5 py-3 font-semibold">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-slate-700">
+                {payouts.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
+                    <td className="px-5 py-3 text-gray-500 dark:text-slate-400 whitespace-nowrap">{p.requestedAt}</td>
+                    <td className="px-5 py-3 font-medium text-gray-800 dark:text-slate-200">
+                      {p.bankAccount ? `${p.bankAccount.bank_name} •••• ${p.bankAccount.account_number?.slice(-4) || ""}` : "Unspecified"}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${
+                        p.status === "completed" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" :
+                        p.status === "failed" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" :
+                        p.status === "processing" ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400" :
+                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400"
+                      }`}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-bold whitespace-nowrap text-gray-900 dark:text-white">
+                      Rp {p.amount.toLocaleString("id-ID")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <PayoutSettingsModal  
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         initialData={payoutSettings}

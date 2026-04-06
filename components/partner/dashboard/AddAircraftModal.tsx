@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Plane, Wrench, Users, CheckCircle2, ChevronRight, Hash, Gauge, Armchair, Calendar } from "lucide-react";
 
 interface AddAircraftModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: any) => void;
+  initialData?: any;
 }
 
 const AIRCRAFT_TYPES = [
@@ -16,16 +17,40 @@ const AIRCRAFT_TYPES = [
   { id: "boeing-777", label: "Boeing 777-300ER", capacity: 396, range: "Long Haul" },
 ];
 
-export default function AddAircraftModal({ isOpen, onClose, onSave }: AddAircraftModalProps) {
+export default function AddAircraftModal({ isOpen, onClose, onSave, initialData }: AddAircraftModalProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     registration: "",
     model: "",
     capacity: 0,
-    yom: "", // Year of Manufacture
+    yom: "",
     status: "active",
     maintenanceDate: "",
   });
+
+  useEffect(() => {
+    if (isOpen && initialData) {
+      setFormData({
+        registration: initialData.registration || "",
+        model: initialData.model || "",
+        capacity: initialData.capacity || 0,
+        yom: initialData.yom || "",
+        status: initialData.status || "active",
+        maintenanceDate: initialData.next_maintenance || "",
+      });
+      setStep(1);
+    } else if (isOpen && !initialData) {
+      setFormData({
+        registration: "",
+        model: "",
+        capacity: 0,
+        yom: "",
+        status: "active",
+        maintenanceDate: "",
+      });
+      setStep(1);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -45,7 +70,7 @@ export default function AddAircraftModal({ isOpen, onClose, onSave }: AddAircraf
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Aircraft</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{initialData ? "Edit Aircraft" : "Add New Aircraft"}</h2>
             <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Step {step} of 2: {step === 1 ? "Aircraft Details" : "Configuration & Status"}</p>
           </div>
           <button 
@@ -184,7 +209,7 @@ export default function AddAircraftModal({ isOpen, onClose, onSave }: AddAircraf
             onClick={step === 2 ? () => onSave(formData) : handleNext}
             className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-6 py-2.5 rounded-xl transition-all shadow-sm shadow-sky-500/20"
           >
-            {step === 2 ? "Add Aircraft" : "Next Step"}
+            {step === 2 ? (initialData ? "Save Changes" : "Add Aircraft") : "Next Step"}
             {step < 2 && <ChevronRight className="w-4 h-4" />}
             {step === 2 && <CheckCircle2 className="w-4 h-4" />}
           </button>

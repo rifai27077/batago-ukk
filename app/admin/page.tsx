@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, Building2, CalendarCheck, TrendingUp, ArrowUpRight, ArrowDownRight, DollarSign, AlertTriangle, Clock, CheckCircle2, Plane, Star, Loader2 } from "lucide-react";
+import { Users, Building2, CalendarCheck, TrendingUp, ArrowUpRight, ArrowDownRight, DollarSign, AlertTriangle, Clock, CheckCircle2, Plane, Loader2 } from "lucide-react";
 import { getAdminStats } from "@/lib/api";
+import { formatRp } from "@/lib/utils";
 
 interface StatsData {
   stats: {
@@ -38,12 +39,7 @@ const actionIcons: Record<string, { icon: typeof AlertTriangle; color: string }>
   info: { icon: Clock, color: "text-blue-500 bg-blue-50 dark:bg-blue-500/10" },
 };
 
-function formatRp(v: number): string {
-  if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `Rp ${Math.round(v / 1_000_000)}M`;
-  if (v >= 1_000) return `Rp ${(v / 1_000).toFixed(0)}K`;
-  return `Rp ${v.toLocaleString("id-ID")}`;
-}
+
 
 function RevenueChart({ data }: { data: { month: string; value: number }[] }) {
   if (!data || data.length === 0) return null;

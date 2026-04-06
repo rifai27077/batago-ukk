@@ -3,6 +3,7 @@
 import { ChevronUp } from "lucide-react";
 
 interface FlightFiltersProps {
+  availableAirlines: string[];
   selectedAirlines: string[];
   onAirlineChange: (airline: string) => void;
   minPrice: string;
@@ -18,6 +19,7 @@ interface FlightFiltersProps {
 }
 
 export default function FlightFilters({
+  availableAirlines,
   selectedAirlines,
   onAirlineChange,
   minPrice,
@@ -125,7 +127,7 @@ export default function FlightFilters({
           <ChevronUp className="w-4 h-4 text-black" />
         </div>
         <div className="space-y-4">
-          {['Emirates', 'Fly Dubai', 'Qatar', 'Etihad'].map((airline) => (
+          {availableAirlines.map((airline) => (
             <label key={airline} className="flex items-center gap-3 cursor-pointer group">
               <input 
                 type="checkbox" 
@@ -139,21 +141,6 @@ export default function FlightFilters({
         </div>
       </div>
 
-      {/* Trips Filter */}
-      <div className="space-y-6 pt-4 border-t border-foreground/10 pb-8">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-foreground">Trips</h3>
-          <ChevronUp className="w-4 h-4 text-black" />
-        </div>
-        <div className="space-y-4">
-          {['Round trip', 'On Way', 'Multi-City', 'My Dates Are Flexible'].map((trip) => (
-            <label key={trip} className="flex items-center gap-3 cursor-pointer group">
-              <input type="checkbox" className="w-4 h-4 rounded-sm border-foreground/20 text-primary focus:ring-primary accent-primary" />
-              <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{trip}</span>
-            </label>
-          ))}
-        </div>
-      </div>
 
     </aside>
   );

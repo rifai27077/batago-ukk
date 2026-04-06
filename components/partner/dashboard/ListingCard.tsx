@@ -51,13 +51,21 @@ export default function ListingCard({ listing, selectable = false, selected = fa
     >
       {/* Image */}
       <div className="relative h-44 overflow-hidden rounded-t-2xl">
-        <Image
-          src={listing.image}
-          alt={listing.name}
-          fill
-          unoptimized={listing.image.includes("localhost") || listing.image.includes("127.0.0.1") || listing.image.includes("uploads/")}
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {listing.image ? (
+          <Image
+            src={listing.image}
+            alt={listing.name}
+            fill
+            unoptimized={listing.image.includes("localhost") || listing.image.includes("127.0.0.1") || listing.image.includes("uploads/")}
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+            <span className="text-white text-4xl font-bold opacity-40">
+              {listing.name ? listing.name.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase() : 'HTL'}
+            </span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         
         {/* Selection Checkbox - Always visible if selected or selectable mode is active, otherwise on hover */}

@@ -6,7 +6,7 @@ import { getFlightDetail } from "@/lib/api";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FlightDetailHero from "@/components/flights/detail/FlightDetailHero";
-import EconomyFeatures from "@/components/flights/detail/EconomyFeatures";
+
 import AirlinePolicies from "@/components/flights/detail/AirlinePolicies";
 import FlightSegmentCard from "@/components/flights/detail/FlightSegmentCard";
 
@@ -85,8 +85,7 @@ export default function FlightDetailPage() {
           imageUrl={flightData.imageUrl}
         />
 
-        {/* Features Section */}
-        <EconomyFeatures />
+
 
         {/* Policies Section */}
         <AirlinePolicies 

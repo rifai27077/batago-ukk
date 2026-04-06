@@ -7,20 +7,26 @@ import RevenueChart from "@/components/partner/dashboard/RevenueChart";
 import BookingTable from "@/components/partner/dashboard/BookingTable";
 import { DashboardSkeleton } from "@/components/partner/dashboard/Skeleton";
 import Link from "next/link";
-import { Building2, Bell, ArrowRight } from "lucide-react";
-
-const quickActions = [
-  { label: "Add New Listing", href: "/partner/dashboard/listings", icon: Building2, color: "bg-primary" },
-  { label: "View All Bookings", href: "/partner/dashboard/bookings", icon: CalendarCheck, color: "bg-blue-500" },
-  { label: "Check Notifications", href: "#", icon: Bell, color: "bg-amber-500" },
-];
+import { Building2, Bell, ArrowRight, Plane, Map } from "lucide-react";
+import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 
 import OnboardingProgress from "@/components/partner/dashboard/OnboardingProgress";
 import { getDashboardStats, DashboardStats } from "@/lib/api";
 
 export default function DashboardOverview() {
+  const { partnerType } = usePartner();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const quickActions = partnerType === "airline" ? [
+    { label: "Add New Route", href: "/partner/dashboard/routes", icon: Map, color: "bg-primary" },
+    { label: "Manage Flights", href: "/partner/dashboard/calendar", icon: Plane, color: "bg-blue-500" },
+    { label: "Check Notifications", href: "#", icon: Bell, color: "bg-amber-500" },
+  ] : [
+    { label: "Add New Listing", href: "/partner/dashboard/listings", icon: Building2, color: "bg-primary" },
+    { label: "View All Bookings", href: "/partner/dashboard/bookings", icon: CalendarCheck, color: "bg-blue-500" },
+    { label: "Check Notifications", href: "#", icon: Bell, color: "bg-amber-500" },
+  ];
 
   useEffect(() => {
     async function fetchStats() {
@@ -78,7 +84,7 @@ export default function DashboardOverview() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Bookings"
+          title={partnerType === "airline" ? "Total Reservations" : "Total Bookings"}
           value={stats?.bookings?.total.toString() || "0"}
           subtitle="All time"
           icon={CalendarCheck}
@@ -94,7 +100,7 @@ export default function DashboardOverview() {
           accentColor="bg-primary"
         />
         <StatCard
-          title="Occupancy Rate"
+          title={partnerType === "airline" ? "Load Factor" : "Occupancy Rate"}
           value={`${stats?.occupancy?.rate || 0}%`}
           subtitle="Average"
           icon={BarChart3}
@@ -119,11 +125,11 @@ export default function DashboardOverview() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Activity</h3>
           <div className="space-y-4">
-            {stats?.recent_activity.map((item, i) => (
+            {stats?.recent_activity?.map((item, i) => (
               <div key={i} className="flex items-start gap-3 group cursor-pointer">
                 <div className="relative mt-1">
                   <span className={`w-2.5 h-2.5 rounded-full block bg-primary`} />
-                  {i < (stats?.recent_activity.length || 0) - 1 && <span className="absolute top-3 left-1/2 -translate-x-1/2 w-px h-8 bg-gray-100 dark:bg-slate-600" />}
+                  {i < (stats?.recent_activity?.length || 0) - 1 && <span className="absolute top-3 left-1/2 -translate-x-1/2 w-px h-8 bg-gray-100 dark:bg-slate-600" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 dark:text-slate-200 group-hover:text-primary transition-colors">{item.title}</p>
@@ -132,7 +138,7 @@ export default function DashboardOverview() {
                 </div>
               </div>
             ))}
-            {!stats?.recent_activity.length && (
+            {!stats?.recent_activity?.length && (
                 <p className="text-sm text-gray-500">No recent activity.</p>
             )}
           </div>

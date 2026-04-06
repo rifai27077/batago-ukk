@@ -12,15 +12,19 @@ interface Route {
   duration: string;
   aircraft: string;
   schedule: string | string[];
+  base_price?: number;
+  classes?: { class: string; price: number; capacity: number }[];
   status: string;
 }
 
 interface RouteCardProps {
   route: Route;
+  onView?: () => void;
+  onEdit?: () => void;
   onDelete?: () => void;
 }
 
-export default function RouteCard({ route, onDelete }: RouteCardProps) {
+export default function RouteCard({ route, onView, onEdit, onDelete }: RouteCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -73,10 +77,32 @@ export default function RouteCard({ route, onDelete }: RouteCardProps) {
             <div>
               <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">Schedule</p>
               <div className="flex gap-1">
-                {Array.isArray(route.schedule) ? route.schedule.map(d => (
-                  <span key={d} className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-[10px] font-bold text-gray-600 dark:text-slate-300">{d}</span>
+                {Array.isArray(route.schedule) ? route.schedule.map((d, i) => (
+                  <span key={`${d}-${i}`} className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-[10px] font-bold text-gray-600 dark:text-slate-300">{d}</span>
                 )) : <span className="font-bold text-gray-800 dark:text-slate-200">{route.schedule}</span>}
               </div>
+            </div>
+            
+            <div className="hidden lg:block">
+              <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">Classes</p>
+              <div className="flex gap-1.5">
+                {route.classes && route.classes.length > 0 ? route.classes.map((c, i) => (
+                  <span key={`${c.class}-${i}`} className="px-2 py-0.5 border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 rounded-md text-[10px] font-bold" title={`${c.class} - Rp ${c.price.toLocaleString("id-ID")}`}>
+                    {c.class === 'Economy' ? 'ECO' : c.class === 'Business' ? 'BIZ' : 'FST'}
+                  </span>
+                )) : (
+                  <span className="px-2 py-0.5 border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-500 rounded-md text-[10px] font-bold">
+                    ECO
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="hidden xl:block">
+              <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">Start From</p>
+              <p className="font-bold text-gray-800 dark:text-slate-200">
+                Rp {((route.classes && route.classes.length > 0) ? Math.min(...route.classes.map(c=>c.price)) : route.base_price || 0).toLocaleString('id-ID')}
+              </p>
             </div>
           </div>
         </div>
@@ -101,10 +127,10 @@ export default function RouteCard({ route, onDelete }: RouteCardProps) {
             
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-200">
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                <button onClick={() => { setMenuOpen(false); onView?.(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                   <Eye className="w-4 h-4" /> View
                 </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                <button onClick={() => { setMenuOpen(false); onEdit?.(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                   <Pencil className="w-4 h-4" /> Edit
                 </button>
                 <button onClick={() => { setMenuOpen(false); onDelete?.(); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">

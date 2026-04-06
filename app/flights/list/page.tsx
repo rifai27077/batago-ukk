@@ -74,6 +74,14 @@ const fallbackFlights = [
   },
 ];
 
+const airlineLogos: Record<string, string> = {
+  "Garuda Indonesia": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Garuda_Indonesia_logo.svg/1024px-Garuda_Indonesia_logo.svg.png",
+  "Lion Air": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Lion_Air_logo.svg/1024px-Lion_Air_logo.svg.png",
+  "Citilink": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Citilink_logo.svg/1024px-Citilink_logo.svg.png",
+  "Batik Air": "https://upload.wikimedia.org/wikipedia/en/thumb/f/fa/Batik_Air_logo.svg/1024px-Batik_Air_logo.svg.png",
+  "AirAsia Indonesia": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/AirAsia_New_Logo.svg/1024px-AirAsia_New_Logo.svg.png",
+};
+
 // Helper to map API result to card format
 function mapApiFlightToCard(flight: FlightResult) {
   const depTime = new Date(flight.departure_time);
@@ -90,9 +98,12 @@ function mapApiFlightToCard(flight: FlightResult) {
   const arrCode = flight.arrival_airport?.code || "???";
   const lowestSeat = flight.seats?.reduce((min, s) => (s.price < min.price ? s : min), flight.seats[0]);
 
+  const airlineName = flight.partner?.company_name || flight.airline || "Unknown";
+  const logo = airlineLogos[airlineName] || `https://ui-avatars.com/api/?name=${encodeURIComponent(airlineName)}&background=random&size=128`;
+
   return {
-    airline: flight.partner?.company_name || flight.airline || "Unknown",
-    logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(flight.partner?.company_name || flight.airline || "A")}&background=random&size=128`,
+    airline: airlineName,
+    logo,
     departureTime: formatTime(depTime),
     arrivalTime: formatTime(arrTime),
     duration: `${durationH}h ${durationM}m`,
@@ -135,7 +146,7 @@ function FlightListingContent() {
           class: searchParams.get("class") || undefined,
           passengers: searchParams.get("passengers") ? Number(searchParams.get("passengers")) : undefined,
         });
-        if (res.data && res.data.length > 0) {
+        if (res && res.data) {
           setFlights(res.data.map(mapApiFlightToCard));
           setUsingApi(true);
         } else {
@@ -156,15 +167,15 @@ function FlightListingContent() {
   // Fetch Favourites independently
   useEffect(() => {
     async function fetchFavs() {
-      try {
-        const res = await getFavourites("flight");
-        if (res.data) {
-          const ids = res.data.map((f: any) => f.flight_id);
-          setFavouriteIds(ids);
-        }
-      } catch (err) {
-        console.error("Failed to fetch favourites", err);
-      }
+      import("@/lib/api").then(({ getToken }) => {
+        if (!getToken()) return;
+        getFavourites("flight").then(res => {
+          if (res.data) {
+            const ids = res.data.map((f: any) => f.flight_id);
+            setFavouriteIds(ids);
+          }
+        }).catch(err => console.error("Failed to fetch favourites", err));
+      });
     }
     fetchFavs();
   }, []);
@@ -207,9 +218,7 @@ function FlightListingContent() {
   };
 
   const handleFilterChange = useCallback((changeFn: () => void) => {
-    setIsLoading(true);
     changeFn();
-    setTimeout(() => setIsLoading(false), 400);
   }, []);
 
   const handleAirlineToggle = (airline: string) => {
@@ -250,6 +259,10 @@ function FlightListingContent() {
 
     return result;
   }, [flights, selectedAirlines, minPrice, maxPrice, minDeparture, maxDeparture, minRating, activeSort]);
+
+  const availableAirlines = useMemo(() => {
+    return [...new Set(flights.map(f => f.airline))];
+  }, [flights]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -297,6 +310,7 @@ function FlightListingContent() {
           {/* Desktop Sidebar Filters */}
           <div className="hidden lg:block lg:w-[280px] shrink-0">
             <FlightFilters 
+                availableAirlines={availableAirlines}
                 selectedAirlines={selectedAirlines}
                 onAirlineChange={handleAirlineToggle}
                 minPrice={minPrice}
@@ -335,6 +349,7 @@ function FlightListingContent() {
                       </button>
                    </div>
                    <FlightFilters 
+                        availableAirlines={availableAirlines}
                         selectedAirlines={selectedAirlines}
                         onAirlineChange={handleAirlineToggle}
                         minPrice={minPrice}

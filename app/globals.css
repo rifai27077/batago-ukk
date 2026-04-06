@@ -16,6 +16,9 @@
   --surface: #ffffff;
   --surface-secondary: #f9fafb;
   --surface-hover: #f3f4f6;
+  --tooltip-bg: #ffffff;
+  --tooltip-border: #e5e7eb;
+  --tooltip-text: #111827;
 }
 
 .dark {
@@ -28,6 +31,9 @@
   --surface: #1e293b;
   --surface-secondary: #0f172a;
   --surface-hover: #334155;
+  --tooltip-bg: #1e293b;
+  --tooltip-border: #334155;
+  --tooltip-text: #f1f5f9;
 }
 
 @theme inline {

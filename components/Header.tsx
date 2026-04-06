@@ -13,7 +13,7 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<{ name: string; email: string; avatar_url?: string; is_verified?: boolean; partner_status?: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string; is_verified?: boolean; partner_status?: string } | null>(null);
   const pathname = usePathname();
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -29,7 +29,6 @@ export default function Header() {
                         setUser({
                             name: res.user.name,
                             email: res.user.email,
-                            avatar_url: res.user.avatar_url,
                             is_verified: res.user.is_verified,
                             partner_status: res.user.partner_status
                         });
@@ -97,7 +96,8 @@ export default function Header() {
     pathname?.startsWith("/contact") || /^\/contact\/[^/]+$/.test(pathname || "") ||
     pathname?.startsWith("/about") || /^\/about\/[^/]+$/.test(pathname || "") ||
     pathname?.startsWith("/profile") || /^\/profile\/[^/]+$/.test(pathname || "") ||
-    pathname?.startsWith("/promotions") || /^\/promotions\/[^/]+$/.test(pathname || "")
+    pathname?.startsWith("/promotions") || /^\/promotions\/[^/]+$/.test(pathname || "") ||
+    pathname?.startsWith("/booking/placed") || /^\/booking\/placed\/[^/]+$/.test(pathname || "")
 
   return (
     <header
@@ -184,14 +184,8 @@ export default function Header() {
                     className="flex items-center gap-3 cursor-pointer group"
                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                   >
-                        <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-white/20 shadow-sm">
-                            <Image 
-                                src={user?.avatar_url || "https://img.freepik.com/premium-vector/default-avatar-profile-icon-gray-placeholder-vector-illustration_514344-14757.jpg?semt=ais_user_personalization&w=740&q=80"}
-                                alt="Profile" 
-                                fill 
-                                className="object-cover" 
-                                unoptimized
-                            />
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-teal-600 flex items-center justify-center text-white text-sm font-bold shadow-sm border-2 border-white/20">
+                            {user?.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
                         </div>
                         <div className="flex items-center gap-2">
                              <span className={`text-sm font-bold transition-colors ${
@@ -383,14 +377,8 @@ export default function Header() {
                   </div>
                 </Link>
                 <div className="flex items-center gap-4 px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => { window.location.href = '/account/preferences'; setIsMobileMenuOpen(false); }}>
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm shrink-0">
-                        <Image 
-                            src={user?.avatar_url || "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop"}
-                            alt={user?.name || "User"}
-                            fill 
-                            className="object-cover" 
-                            unoptimized
-                        />
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-teal-600 flex items-center justify-center text-white text-xl font-bold shadow-sm border-2 border-white shrink-0">
+                        {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
                     </div>
                     <div>
                         <p className="font-bold text-foreground">{user?.name || "User"}</p>

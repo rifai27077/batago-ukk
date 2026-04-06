@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search, Filter, Eye, RefreshCw, Ban, Building2, Plane, Download, Loader2 } from "lucide-react";
+import { Search, Filter, Eye, Building2, Plane, Loader2 } from "lucide-react";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import { getAdminBookings } from "@/lib/api";
+import { formatRp } from "@/lib/utils";
 
 interface Booking {
   id: number;
@@ -18,11 +19,7 @@ interface Booking {
   date: string;
 }
 
-function formatRp(v: number): string {
-  if (v >= 1_000_000) return `Rp ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `Rp ${Math.round(v / 1_000).toLocaleString("id-ID")}K`;
-  return `Rp ${v.toLocaleString("id-ID")}`;
-}
+
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   confirmed: { color: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", label: "Confirmed" },

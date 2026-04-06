@@ -100,7 +100,7 @@ export default function StaysBookingPage({ params }: PageProps) {
         guests
       );
 
-      // Get Snap Token
+      // Get Payment URL
       try {
         const paymentRes = await createPaymentToken(res.booking_id);
         
@@ -270,6 +270,7 @@ export default function StaysBookingPage({ params }: PageProps) {
                     </div>
                   </div>
                 </div>
+
 
                 <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 flex items-center gap-6">
                     <p className="text-sm text-muted mb-1 text-center w-full">By clicking Complete Booking, you agree to our <span className="text-primary cursor-pointer hover:underline">Terms</span> and <span className="text-primary cursor-pointer hover:underline">Privacy Policy</span>.</p>

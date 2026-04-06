@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Star, X, Loader2 } from "lucide-react";
-import Image from "next/image";
 import { createReview } from "@/lib/api";
 
 interface ReviewModalProps {
@@ -10,7 +9,6 @@ interface ReviewModalProps {
   onClose: () => void;
   bookingDetails: {
     title: string;
-    image: string;
     id: string;
   };
 }
@@ -56,13 +54,8 @@ export default function ReviewModal({ isOpen, onClose, bookingDetails }: ReviewM
 
             {/* Booking Summary */}
             <div className="p-4 flex items-center gap-4 bg-gray-50 border-b border-gray-100">
-                 <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                    <Image 
-                        src={bookingDetails.image} 
-                        alt={bookingDetails.title} 
-                        fill 
-                        className="object-cover" 
-                    />
+                 <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-teal-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+                    {bookingDetails.title ? bookingDetails.title.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : 'BG'}
                 </div>
                 <div>
                     <h3 className="font-bold text-sm text-foreground line-clamp-1">{bookingDetails.title}</h3>

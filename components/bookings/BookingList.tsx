@@ -115,16 +115,14 @@ export default function BookingList() {
             id: b.booking_code || String(b.ID),
             internalID: b.ID,
             type: b.type as "flight" | "hotel",
-            status: (b.booking_status === "confirmed" ? "upcoming" : b.booking_status === "completed" ? "completed" : "cancelled") as "upcoming" | "completed" | "cancelled",
+            status: (b.booking_status === "COMPLETED" || b.booking_status === "completed" ? "completed" : b.booking_status === "CANCELLED" || b.booking_status === "cancelled" ? "cancelled" : "upcoming") as "upcoming" | "completed" | "cancelled",
             paymentStatus: b.payment_status,
             date: new Date(b.CreatedAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }),
             price: `IDR ${b.total_amount.toLocaleString("id-ID")}`,
             details: {
               title: b.partner?.company_name || (b.type === "flight" ? "Flight Booking" : "Hotel Booking"),
               subtitle: b.booking_code,
-              image: b.type === "flight"
-                ? "https://images.unsplash.com/photo-1542296332-2e44a996aa0a?q=80&w=300&auto=format&fit=crop"
-                : "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=300&auto=format&fit=crop",
+              image: "",
               description: `Booking ${b.booking_code}`,
             },
           }));

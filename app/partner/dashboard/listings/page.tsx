@@ -1,13 +1,34 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, Plus, LayoutGrid, List } from "lucide-react";
+import { Search, Plus, LayoutGrid, List, Check } from "lucide-react";
 import ListingCard from "@/components/partner/dashboard/ListingCard";
 import type { Listing } from "@/components/partner/dashboard/ListingCard";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import EmptyState from "@/components/partner/dashboard/EmptyState";
 import AddListingModal from "@/components/partner/dashboard/AddListingModal";
 import { getPartnerListings, createPartnerListing, deletePartnerListing, updatePartnerListing } from "@/lib/api";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+function mapApiToListing(l: any): Listing {
+  let imageUrl = l.images?.[0]?.url || "";
+  if (imageUrl.startsWith("uploads/") || imageUrl.startsWith("/uploads/")) {
+    imageUrl = `${API_BASE}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+  }
+  return {
+    id: String(l.ID),
+    name: l.name,
+    image: imageUrl,
+    location: l.address || (l.city?.name ? `${l.city.name}, ${l.city.country}` : ""),
+    rating: l.rating || 0,
+    reviewCount: l.total_reviews || 0,
+    rooms: l.room_count || l.rooms || 0,
+    occupancy: l.occupancy || 0,
+    status: (l.status?.toLowerCase() || "active") as "active" | "draft" | "inactive",
+    type: (l.type?.toLowerCase() || "hotel") as any,
+  };
+}
 
 const statusFilters = ["All", "Active", "Draft", "Inactive"] as const;
 
@@ -29,31 +50,7 @@ export default function ListingsPage() {
       try {
         const res = await getPartnerListings({ page: 1, limit: 100 });
         if (res.data && res.data.length > 0) {
-          console.log("DEBUG RAW API DATA:", JSON.stringify(res.data[0], null, 2));
-          const mapped: Listing[] = res.data.map((l) => {
-            let imageUrl = l.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80";
-            
-            // If it's a relative path from our own backend, make sure it has the base URL
-            if (imageUrl.startsWith("uploads/") || imageUrl.startsWith("/uploads/")) {
-              imageUrl = `http://localhost:8080${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
-            }
-            
-            console.log(`DEBUG IMAGE for "${l.name}": raw=${l.images?.[0]?.url}, final=${imageUrl}`);
-
-            return {
-              id: String(l.ID),
-              name: l.name,
-              image: imageUrl,
-              location: l.address || (l.city?.name ? `${l.city.name}, ${l.city.country}` : ""),
-              rating: l.rating || 0,
-              reviewCount: l.total_reviews || 0,
-              rooms: l.room_count || l.rooms || 0,
-              occupancy: l.occupancy || 0,
-              status: (l.status?.toLowerCase() || "active") as "active" | "draft" | "inactive",
-              type: (l.type?.toLowerCase() || "hotel") as any,
-            };
-          });
-          setListings(mapped);
+          setListings(res.data.map(mapApiToListing));
           setTotalListings(res.meta.total);
         }
       } catch (err) {
@@ -69,22 +66,16 @@ export default function ListingsPage() {
     try {
       let imageUrl = "";
       
-      // Handle image upload if exists
       if (data.image && data.image instanceof File) {
-        console.log("DEBUG: Starting image upload for file:", data.image.name);
         try {
           const { uploadListingImage } = await import("@/lib/api");
           const uploadRes = await uploadListingImage(data.image);
-          console.log("DEBUG: Image upload result:", uploadRes);
           imageUrl = uploadRes.url;
-          console.log("DEBUG: Uploaded image URL:", imageUrl);
         } catch (uploadErr) {
-          console.error("DEBUG ERROR: Image upload failed:", uploadErr);
+          console.error("Image upload failed:", uploadErr);
           alert("Failed to upload image. Please try again.");
-          return; // Stop further execution if image upload fails
+          return;
         }
-      } else {
-        console.log("DEBUG: No image file to upload or invalid image data.");
       }
 
       const listingData = {
@@ -101,45 +92,19 @@ export default function ListingsPage() {
         longitude: data.longitude,
       };
 
-      console.log("DEBUG: Saving listing with data:", listingData);
       if (editingListing) {
-        // Update existing listing
         await updatePartnerListing(Number(editingListing.id), listingData);
-        console.log("DEBUG: Partner listing updated successfully.");
       } else {
-        // Create new listing
         await createPartnerListing(listingData);
-        console.log("DEBUG: Partner listing created successfully.");
       }
       
       const res = await getPartnerListings({ page: 1, limit: 100 });
       if (res.data) {
-        console.log("DEBUG: Fetched updated listings after creation:", res.data);
-        const mapped: Listing[] = res.data.map((l) => {
-          let imageUrl = l.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80";
-          
-          if (imageUrl.startsWith("uploads/") || imageUrl.startsWith("/uploads/")) {
-            imageUrl = `http://localhost:8080${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
-          }
-
-          return {
-            id: String(l.ID),
-            name: l.name,
-            image: imageUrl,
-            location: l.address || (l.city?.name ? `${l.city.name}, ${l.city.country}` : ""),
-            rating: l.rating || 0,
-            reviewCount: l.total_reviews || 0,
-            rooms: l.room_count || l.rooms || 0,
-            occupancy: l.occupancy || 0,
-            status: (l.status?.toLowerCase() || "active") as "active" | "draft" | "inactive",
-            type: (l.type?.toLowerCase() || "hotel") as any,
-          };
-        });
-        setListings(mapped);
+        setListings(res.data.map(mapApiToListing));
         setTotalListings(res.meta.total);
       }
     } catch (err) {
-      console.error("Failed to create listing", err);
+      console.error("Failed to save listing", err);
       alert("Failed to create listing: " + (err instanceof Error ? err.message : "Unknown error"));
     }
     setIsAddModalOpen(false);
@@ -328,7 +293,7 @@ export default function ListingsPage() {
              className="text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-primary transition-colors flex items-center gap-2"
            >
              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.length > 0 && selectedIds.length === paginatedData.length ? "bg-primary border-primary text-white" : "border-gray-300 dark:border-slate-600"}`}>
-                {selectedIds.length > 0 && selectedIds.length === paginatedData.length && <Plus className="w-3 h-3 rotate-45" />} {/* Using Plus rotated as check/partial check hack for now since Check is not imported */}
+                {selectedIds.length > 0 && selectedIds.length === paginatedData.length && <Plus className="w-3 h-3 rotate-45" />} 
              </div>
              {selectedIds.length === paginatedData.length ? "Deselect All" : "Select All"}
            </button>

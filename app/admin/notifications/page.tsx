@@ -125,7 +125,7 @@ export default function AdminNotificationsPage() {
             </div>
           ) : (
             filteredNotifs.map((n) => (
-              <div key={n.id} className={`p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors flex items-start gap-4 ${n.is_read ? 'opacity-70' : ''}`}>
+              <div key={n.id} className={`group p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors flex items-start gap-4 ${n.is_read ? 'opacity-70' : ''}`}>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                   n.importance === 'high' ? 'bg-red-50 dark:bg-red-500/10' :
                   n.type === 'system' ? 'bg-slate-100 dark:bg-slate-700' :

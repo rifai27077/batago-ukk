@@ -90,49 +90,7 @@ export default function FlightDetailHero({
           </div>
         </div>
 
-        {/* Hero Image Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-[300px] md:h-[450px] mt-8 rounded-[12px] overflow-hidden shadow-2xl shadow-black/5 ring-1 ring-black/5">
-          {/* Main Large Image */}
-          <div className="md:col-span-3 relative h-full group overflow-hidden">
-            <Image
-              src={imageUrl}
-              alt={title}
-              fill
-              className="object-cover transition-transform duration-700 group-hover:scale-105"
-              priority
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute bottom-4 left-4">
-                <button className="bg-white/90 backdrop-blur-md text-foreground text-xs font-bold px-4 py-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-                    View Interactive 360°
-                </button>
-            </div>
-          </div>
-          
-          {/* Side Stacked Images */}
-          <div className="hidden md:flex flex-col gap-4 h-full">
-            <div className="relative flex-1 group overflow-hidden bg-gray-100">
-               <Image
-                src="https://images.unsplash.com/photo-1542296332-2e44a99cfef9?q=80&w=800&auto=format&fit=crop"
-                alt="Detail 1"
-                fill
-                className="object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-            </div>
-            <div className="relative flex-1 group overflow-hidden bg-gray-100">
-              <Image
-                src="https://images.unsplash.com/photo-1569154941061-e231b4725ef1?q=80&w=800&auto=format&fit=crop"
-                alt="Detail 2"
-                fill
-                className="object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              {/* "View All" Overlay */}
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer">
-                 <span className="text-white font-bold text-sm tracking-wide border-b border-white pb-0.5">View All Photos</span>
-              </div>
-            </div>
-          </div>
-        </div>
+
       </div>
     </section>
   );

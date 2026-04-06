@@ -6,6 +6,7 @@ import { Search, Filter, Eye, CheckCircle, XCircle, Building2, Plane, Loader2 } 
 import Pagination from "@/components/partner/dashboard/Pagination";
 import PartnerActionModal from "@/components/admin/modals/PartnerActionModal";
 import { getAdminPartners, updatePartnerStatus } from "@/lib/api";
+import { formatRp } from "@/lib/utils";
 
 interface Partner {
   id: number;
@@ -19,12 +20,7 @@ interface Partner {
   location: string;
 }
 
-function formatRp(v: number): string {
-  if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `Rp ${Math.round(v / 1_000_000)}M`;
-  if (v >= 1_000) return `Rp ${(v / 1_000).toFixed(0)}K`;
-  return `Rp ${v.toLocaleString("id-ID")}`;
-}
+
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   active: { color: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", label: "Active" },

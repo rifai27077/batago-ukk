@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Search, 
   Filter, 
@@ -43,7 +43,7 @@ export default function AdminActivityLogPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       const api = await import("@/lib/api");
@@ -62,11 +62,11 @@ export default function AdminActivityLogPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, categoryFilter, currentPage, itemsPerPage]);
 
   useEffect(() => {
     fetchLogs();
-  }, [searchQuery, categoryFilter, currentPage, itemsPerPage]);
+  }, [fetchLogs]);
 
   const totalPages = Math.ceil(total / itemsPerPage);
 

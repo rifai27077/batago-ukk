@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Eye, MousePointerClick, CalendarCheck, CheckCircle, Users, MapPin, Download, Plane, Building2 } from "lucide-react";
-import { useDateRange } from "@/components/partner/dashboard/DateRangeContext";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 import { getPartnerAnalytics, PartnerAnalyticsResponse } from "@/lib/api";
 import {
@@ -27,7 +26,6 @@ const formatCurrency = (v: number) => {
 };
 
 export default function AnalyticsPage() {
-  const { dateRange } = useDateRange();
   const { partnerType } = usePartner();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PartnerAnalyticsResponse | null>(null);

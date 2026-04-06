@@ -27,7 +27,6 @@ interface RevenueChartProps {
 }
 
 export default function RevenueChart({ data: initialData }: RevenueChartProps) {
-  const [period, setPeriod] = useState<Period>("Monthly");
   const [chartData, setChartData] = useState<any[]>(initialData || []);
   const [isLoading, setIsLoading] = useState(!initialData);
 
@@ -65,23 +64,8 @@ export default function RevenueChart({ data: initialData }: RevenueChartProps) {
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-gray-100 dark:border-slate-700">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Overview</h3>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Overview</h3>
           <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Revenue over the last 6 months</p>
-        </div>
-        <div className="flex bg-gray-100 dark:bg-slate-700 rounded-xl p-1">
-          {periods.map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                period === p
-                  ? "bg-white dark:bg-slate-600 text-gray-900 dark:text-white shadow-sm"
-                  : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -126,14 +110,15 @@ export default function RevenueChart({ data: initialData }: RevenueChartProps) {
             <Tooltip
               isAnimationActive={false}
               contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #e5e7eb",
+                backgroundColor: "var(--tooltip-bg, #fff)",
+                border: "1px solid var(--tooltip-border, #e5e7eb)",
                 borderRadius: "12px",
                 padding: "10px 14px",
                 boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+                color: "var(--tooltip-text, #111)",
               }}
               formatter={(value: any) => [`Rp ${value?.toLocaleString("id-ID")}`, ""]}
-              labelStyle={{ fontWeight: 700, marginBottom: 4, color: "#111" }}
+              labelStyle={{ fontWeight: 700, marginBottom: 4, color: "var(--tooltip-text, #111)" }}
             />
             <Area
               isAnimationActive={false}

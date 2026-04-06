@@ -18,9 +18,8 @@ export default function AdminReportsPage() {
   const [bookingData, setBookingData] = useState<{name: string, revenue: number, bookings: number}[]>([]);
   const categoryData = [
     { name: 'Hotels', value: 65 },
-    { name: 'Flights', value: 25 },
-    { name: 'Activities', value: 10 },
-  ]; // Still mock for now as backend didn't provide category split in reports endpoint
+    { name: 'Flights', value: 35 },
+  ];
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -93,19 +92,19 @@ export default function AdminReportsPage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "Total Revenue", value: formatCurrency(stats.total_revenue), change: "+12.5%", icon: CreditCard, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-500/10" },
-              { label: "Total Bookings", value: stats.total_bookings.toLocaleString(), change: "+8.2%", icon: Hotel, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-500/10" },
-              { label: "New Users", value: stats.new_users.toLocaleString(), change: "+24.1%", icon: Users, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-500/10" },
-              { label: "Avg. Order Value", value: formatCurrency(stats.avg_order_value), change: "+3.4%", icon: TrendingUp, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-500/10" },
+              { label: "Total Revenue", value: formatCurrency(stats.total_revenue), change: "", icon: CreditCard, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-500/10" },
+              { label: "Total Bookings", value: stats.total_bookings.toLocaleString(), change: "", icon: Hotel, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-500/10" },
+              { label: "New Users", value: stats.new_users.toLocaleString(), change: "", icon: Users, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-500/10" },
+              { label: "Avg. Order Value", value: formatCurrency(stats.avg_order_value), change: "", icon: TrendingUp, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-500/10" },
             ].map((stat, idx) => (
               <div key={idx} className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                   <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
                     <stat.icon className="w-6 h-6" />
                   </div>
-                  <span className="flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">
+                  {stat.change && <span className="flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">
                     {stat.change}
-                  </span>
+                  </span>}
                 </div>
                 <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">{stat.label}</p>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stat.value}</h3>
@@ -193,12 +192,12 @@ export default function AdminReportsPage() {
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                   {bookingData.slice().reverse().slice(0, 5).map((row, idx) => (
                     <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{row.name} 2024</td>
+                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{row.name} {new Date().getFullYear()}</td>
                       <td className="px-6 py-4">{row.bookings}</td>
                       <td className="px-6 py-4">Rp {row.revenue.toLocaleString('id-ID')}</td>
                       <td className="px-6 py-4 text-red-500">- Rp {(row.revenue * 0.1).toLocaleString('id-ID')}</td>
                       <td className="px-6 py-4 text-emerald-600 font-bold">+ Rp {(row.revenue * 0.05).toLocaleString('id-ID')}</td>
-                      <td className="px-6 py-4 text-right text-emerald-600 font-medium">+{(Math.random() * 10).toFixed(1)}%</td>
+                      <td className="px-6 py-4 text-right text-gray-400 font-medium">—</td>
                     </tr>
                   ))}
                 </tbody>

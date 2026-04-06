@@ -429,6 +429,7 @@ export default function PromotionsPage() {
       <PromotionForm 
         isOpen={isModalOpen} 
         initialData={currentPromo}
+        partnerType={partnerType}
         onClose={() => setIsModalOpen(false)} 
         onSave={async (data) => {
           console.log("Saving promotion data:", data);

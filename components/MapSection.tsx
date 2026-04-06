@@ -1,28 +1,51 @@
-import Image from "next/image";
 import Link from "next/link";
+import { MapPin as MapPinIcon } from "lucide-react";
 
-const MapPin = ({ top, left, user, avatar }: { top: string; left: string; user: string; avatar: string }) => (
+const MapPin = ({ top, left, cityName, country }: { top: string; left: string; cityName: string; country: string }) => (
   <div 
-    className="absolute flex items-center gap-2 animate-bounce-slow hover:z-20 group"
+    className="absolute flex items-center gap-2 animate-bounce-slow hover:z-20 group cursor-pointer"
     style={{ top, left }}
   >
     {/* Dot */}
     <div className="w-3 h-3 bg-white rounded-full shadow-lg ring-4 ring-white/30 z-10" />
     
     {/* Card */}
-    <div className="bg-white p-2 rounded-xl shadow-xl flex items-center gap-3 absolute bottom-6 left-1/2 -translate-x-1/2 min-w-[140px] opacity-100 transition-all duration-300 scale-100 origin-bottom">
-        <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0">
-            <Image src={avatar} alt={user} fill className="object-cover" />
+    <div className="bg-white p-2 rounded-xl shadow-xl flex items-center gap-3 absolute bottom-6 left-1/2 -translate-x-1/2 min-w-[120px] opacity-100 transition-all duration-300 scale-100 origin-bottom group-hover:scale-110">
+        <div className="w-8 h-8 rounded-full bg-[#14b8a6]/10 flex items-center justify-center shrink-0">
+           <MapPinIcon className="w-4 h-4 text-[#14b8a6]" />
         </div>
         <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-gray-900 leading-tight">{user}</span>
-            <span className="text-[8px] text-gray-500 leading-tight">Boarding Pass N&apos;123</span>
+            <span className="text-xs font-bold text-gray-900 leading-tight">{cityName}</span>
+            <span className="text-[10px] text-gray-500 leading-tight">{country}</span>
         </div>
     </div>
   </div>
 );
 
-export default function MapSection() {
+async function getPopularCities() {
+  try {
+    // Next.js fetch with revalidation
+    const res = await fetch('http://localhost:8080/v1/cities?popular=true', { next: { revalidate: 3600 } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch (error) {
+    console.error("Failed to fetch cities for MapSection:", error);
+    return [];
+  }
+}
+
+export default async function MapSection() {
+  const cities = await getPopularCities();
+  
+  // Distribute cities across sensible world map coordinates
+  const pinCoordinates = [
+    { top: "60%", left: "80%" }, // Asia/Oceania
+    { top: "50%", left: "35%" }, // Europe/Middle East
+    { top: "35%", left: "20%" }, // North America
+    { top: "25%", left: "70%" }, // Far East / Japan
+    { top: "48%", left: "45%" }, // Middle East / India
+  ];
   return (
     <section className="bg-[#14b8a6] py-20 relative overflow-hidden">
         {/* Header */}
@@ -54,30 +77,25 @@ export default function MapSection() {
 
             {/* Pins */}
             <div className="relative max-w-7xl mx-auto h-full hidden md:block">
-                 <MapPin 
-                    top="30%" 
-                    left="20%" 
-                    user="James Doe" 
-                    avatar="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=100&auto=format&fit=crop" 
-                />
-                <MapPin 
-                    top="50%" 
-                    left="35%" 
-                    user="James Doe" 
-                    avatar="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=100&auto=format&fit=crop" 
-                />
-                <MapPin 
-                    top="25%" 
-                    left="70%" 
-                    user="James Doe" 
-                    avatar="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop" 
-                />
-                 <MapPin 
-                    top="60%" 
-                    left="80%" 
-                    user="James Doe" 
-                    avatar="https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=100&auto=format&fit=crop" 
-                />
+                {cities.slice(0, 5).map((city: any, idx: number) => {
+                    const coords = pinCoordinates[idx % pinCoordinates.length];
+                    return (
+                        <MapPin 
+                            key={city.ID}
+                            top={coords.top} 
+                            left={coords.left} 
+                            cityName={city.name} 
+                            country={city.country}
+                        />
+                    );
+                })}
+                {/* Fallback if no database seeded */}
+                {cities.length === 0 && (
+                   <MapPin 
+                      top="60%" left="80%" 
+                      cityName="Bali" country="Indonesia"
+                   />
+                )}
             </div>
         </div>
     </section>

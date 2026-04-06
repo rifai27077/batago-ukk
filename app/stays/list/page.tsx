@@ -17,7 +17,7 @@ import { toast } from "react-hot-toast";
 // Fallback data for when backend is unavailable
 const fallbackStays = [
   {
-    id: 0,
+    id: 1001,
     name: "The Ritz-Carlton Bali",
     image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
     location: "Nusa Dua, Bali",
@@ -29,7 +29,7 @@ const fallbackStays = [
     amenities: ["Pool", "Spa", "Beachfront", "Breakfast included"]
   },
   {
-    id: 0,
+    id: 1002,
     name: "Ayana Resort and Spa",
     image: "https://images.unsplash.com/photo-1571896349842-6e53ce41be67?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
     location: "Jimbaran, Bali",
@@ -41,7 +41,7 @@ const fallbackStays = [
     amenities: ["Rock Bar", "12 Pools", "Private Beach", "Golf"]
   },
   {
-    id: 0,
+    id: 1003,
     name: "Padma Resort Legian",
     image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
     location: "Legian, Bali",
@@ -60,7 +60,7 @@ function formatPrice(amount: number): string {
 
 function mapHotelToCard(hotel: HotelResult) {
   const primaryImage = hotel.images?.find((img) => img.is_primary);
-  const imageUrl = primaryImage?.url || hotel.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1000";
+  const imageUrl = primaryImage?.url || hotel.images?.[0]?.url || "";
   const cityName = hotel.city?.name || "";
   const country = hotel.city?.country || "Indonesia";
   const amenities = hotel.facilities?.map((f) => f.name) || [];
@@ -95,7 +95,6 @@ function HotelListingContent() {
   const [minRating, setMinRating] = useState(0);
   const [activeSort, setActiveSort] = useState("recommended");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [selectedFreebies, setSelectedFreebies] = useState<string[]>([]);
 
   // Fetch hotels from API
   useEffect(() => {
@@ -115,9 +114,9 @@ function HotelListingContent() {
           limit: 20,
         });
 
-        if (res.data && res.data.length > 0) {
+        if (res && res.data) {
           setHotels(res.data.map(mapHotelToCard));
-          setTotalCount(res.meta.total);
+          setTotalCount(res.meta ? res.meta.total : res.data.length);
           setUsingFallback(false);
         } else {
           setHotels(fallbackStays);
@@ -138,15 +137,15 @@ function HotelListingContent() {
   // Fetch Favourites independently
   useEffect(() => {
     async function fetchFavs() {
-      try {
-        const res = await getFavourites("hotel");
-        if (res.data) {
-          const ids = res.data.map((f: any) => f.hotel_id);
-          setFavouriteIds(ids);
-        }
-      } catch (err) {
-        console.error("Failed to fetch favourites", err);
-      }
+      import("@/lib/api").then(({ getToken }) => {
+        if (!getToken()) return;
+        getFavourites("hotel").then(res => {
+          if (res.data) {
+            const ids = res.data.map((f: any) => f.hotel_id);
+            setFavouriteIds(ids);
+          }
+        }).catch(err => console.error("Failed to fetch favourites", err));
+      });
     }
     fetchFavs();
   }, []);
@@ -181,7 +180,8 @@ function HotelListingContent() {
       const matchesMinPrice = parsedMinPrice === null || stay.priceValue >= parsedMinPrice;
       const matchesMaxPrice = parsedMaxPrice === null || stay.priceValue <= parsedMaxPrice;
       const matchesRating = stay.rating >= minRating;
-      return matchesMinPrice && matchesMaxPrice && matchesRating;
+      const matchesAmenities = selectedAmenities.length === 0 || selectedAmenities.every(a => stay.amenities.includes(a));
+      return matchesMinPrice && matchesMaxPrice && matchesRating && matchesAmenities;
     });
 
     if (activeSort === "cheapest") {
@@ -191,7 +191,12 @@ function HotelListingContent() {
     }
 
     return result;
-  }, [hotels, minPrice, maxPrice, minRating, activeSort]);
+  }, [hotels, minPrice, maxPrice, minRating, selectedAmenities, activeSort]);
+
+  const availableAmenities = useMemo(() => {
+    const all = hotels.flatMap(h => h.amenities);
+    return [...new Set(all)];
+  }, [hotels]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-sans">
@@ -243,10 +248,9 @@ function HotelListingContent() {
                 onMaxPriceChange={(v) => handleFilterChange(() => setMaxPrice(v))}
                 minRating={minRating}
                 onRatingChange={(r) => handleFilterChange(() => setMinRating(r))}
+                availableAmenities={availableAmenities}
                 selectedAmenities={selectedAmenities}
                 onAmenityChange={(a) => handleFilterChange(() => setSelectedAmenities(prev => prev.includes(a) ? prev.filter(i => i !== a) : [...prev, a]))}
-                selectedFreebies={selectedFreebies}
-                onFreebieChange={(f) => handleFilterChange(() => setSelectedFreebies(prev => prev.includes(f) ? prev.filter(i => i !== f) : [...prev, f]))}
             />
           </div>
 
@@ -276,10 +280,9 @@ function HotelListingContent() {
                         onMaxPriceChange={(v) => handleFilterChange(() => setMaxPrice(v))}
                         minRating={minRating}
                         onRatingChange={(r) => handleFilterChange(() => setMinRating(r))}
+                        availableAmenities={availableAmenities}
                         selectedAmenities={selectedAmenities}
                         onAmenityChange={(a) => handleFilterChange(() => setSelectedAmenities(prev => prev.includes(a) ? prev.filter(i => i !== a) : [...prev, a]))}
-                        selectedFreebies={selectedFreebies}
-                        onFreebieChange={(f) => handleFilterChange(() => setSelectedFreebies(prev => prev.includes(f) ? prev.filter(i => i !== f) : [...prev, f]))}
                    />
                    <div className="mt-8 pt-6 border-t border-gray-100">
                       <button 

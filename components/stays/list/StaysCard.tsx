@@ -35,12 +35,20 @@ export default function StaysCard({
     <div className="bg-white rounded-[12px] shadow-[0_4px_16px_rgba(17,34,17,0.05)] p-0 hover:shadow-[0_4px_24px_rgba(17,34,17,0.08)] transition-all flex flex-col lg:flex-row overflow-hidden border border-foreground/5">
       {/* Hotel Image Section */}
       <div className="relative w-full lg:w-[300px] h-48 lg:h-auto shrink-0">
-        <Image 
-          src={image} 
-          alt={name} 
-          fill 
-          className="object-cover"
-        />
+        {image ? (
+          <Image 
+            src={image} 
+            alt={name} 
+            fill 
+            className="object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+            <span className="text-white text-4xl font-bold opacity-50">
+              {name ? name.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase() : 'HTL'}
+            </span>
+          </div>
+        )}
         <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
             <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
             <span className="text-xs font-bold text-foreground">{rating}</span>

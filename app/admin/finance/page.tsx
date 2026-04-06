@@ -5,13 +5,9 @@ import { DollarSign, TrendingUp, Clock, RefreshCw, CheckCircle, XCircle, Save, D
 import Pagination from "@/components/partner/dashboard/Pagination";
 import ProcessPayoutModal from "@/components/admin/modals/ProcessPayoutModal";
 import { getAdminFinanceStats, getAdminPayouts, processAdminPayout } from "@/lib/api";
+import { formatRp } from "@/lib/utils";
 
-function formatRp(v: number): string {
-  if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `Rp ${Math.round(v / 1_000_000)}M`;
-  if (v >= 1_000) return `Rp ${(v / 1_000).toFixed(0)}K`;
-  return `Rp ${v.toLocaleString("id-ID")}`;
-}
+
 
 interface FinanceData {
   gmv: number;

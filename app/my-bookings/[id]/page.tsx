@@ -2,7 +2,7 @@
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { ArrowLeft, Plane, Calendar, Clock, MapPin, Download, Share2, CreditCard, Star, Wifi, Coffee, Wind, Tv, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, Plane, Calendar, Clock, MapPin, Download, Share2, CreditCard, Star, Wifi, Coffee, Wind, Tv, ShieldCheck, Users, Mail } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ export default function BookingDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   useEffect(() => {
@@ -69,6 +70,31 @@ export default function BookingDetailPage() {
     .catch(err => alert("Failed to download: " + err.message));
   };
 
+  const handleResendEmail = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('batago_token') : null;
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1').replace(/\/v1$/, '');
+    const url = `${baseUrl}/v1/bookings/${booking.booking_code}/resend-ticket`;
+    
+    setIsResending(true);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'Failed to resend email');
+      
+      alert("Ticket has been resent to your email!");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   const handleCancel = async () => {
     if (!confirm("Are you sure you want to cancel this booking?")) return;
     
@@ -116,7 +142,7 @@ export default function BookingDetailPage() {
                     </div>
                     <p className="text-muted">Booking Code: <span className="font-mono text-foreground font-bold">{booking.booking_code}</span></p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     {isCompleted && (
                         <button 
                             onClick={() => setIsReviewModalOpen(true)}
@@ -136,13 +162,23 @@ export default function BookingDetailPage() {
                         </button>
                     )}
                     {isPaid && (
-                        <button 
-                            onClick={handleDownload}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all"
-                        >
-                            <Download className="w-4 h-4" />
-                            {isFlight ? "Download E-Ticket" : "Download Voucher"}
-                        </button>
+                        <>
+                            <button 
+                                onClick={handleResendEmail}
+                                disabled={isResending}
+                                className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                            >
+                                <Mail className={`w-4 h-4 ${isResending ? "animate-pulse" : ""}`} />
+                                {isResending ? "Sending..." : "Resend to Email"}
+                            </button>
+                            <button 
+                                onClick={handleDownload}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all"
+                            >
+                                <Download className="w-4 h-4" />
+                                {isFlight ? "Download E-Ticket" : "Download Voucher"}
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -154,8 +190,8 @@ export default function BookingDetailPage() {
                     <div className="space-y-8">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm p-2">
-                                    <Image src="https://images.unsplash.com/photo-1542296332-2e44a996aa0a?q=80&w=100&auto=format&fit=crop" width={56} height={56} alt="Airline" className="rounded-xl object-contain" />
+                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-sm border border-gray-100">
+                                    {flight_booking.flight.airline ? flight_booking.flight.airline.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() : 'FL'}
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-xl text-foreground">{flight_booking.flight.airline}</h3>
@@ -217,7 +253,9 @@ export default function BookingDetailPage() {
                                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
                                                 {p.name.charAt(0)}
                                             </div>
-                                            <span className="text-sm font-bold text-foreground">{p.title}. {p.name}</span>
+                                            <span className="text-sm font-bold text-foreground">
+                                                {p.title ? `${p.title}. ` : ''}{p.name}
+                                            </span>
                                         </div>
                                         <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full font-bold text-muted uppercase tracking-tighter">
                                             {p.passport_number || "REGULAR"}
@@ -234,12 +272,20 @@ export default function BookingDetailPage() {
                             {/* Improved Gallery */}
                             <div className="relative group">
                                 <div className="relative w-full h-[400px] rounded-2xl overflow-hidden shadow-md">
+                                {data.hotel_booking?.room_type?.hotel?.images?.[0]?.url ? (
                                     <Image 
-                                        src={data.hotel_booking?.room_type?.hotel?.images?.[0]?.url || "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop"} 
+                                        src={data.hotel_booking.room_type.hotel.images[0].url} 
                                         fill 
                                         alt="Hotel Main" 
                                         className="object-cover" 
                                     />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                                        <span className="text-white text-6xl font-bold opacity-50">
+                                            {data.hotel_booking?.room_type?.hotel?.name ? data.hotel_booking.room_type.hotel.name.split(' ').map((w: string) => w[0]).join('').substring(0, 3).toUpperCase() : 'HTL'}
+                                        </span>
+                                    </div>
+                                )}
                                     <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
                                         <h2 className="text-2xl font-bold text-white mb-1">{data.hotel_booking?.room_type?.hotel?.name}</h2>
                                         <p className="text-white/80 text-sm flex items-center gap-1">
@@ -354,10 +400,7 @@ export default function BookingDetailPage() {
         onClose={() => setIsReviewModalOpen(false)} 
         bookingDetails={{
             id: String(booking.ID || booking.id),
-            title: isFlight ? "Flight" : "Stay",
-            image: isFlight 
-                ? "https://images.unsplash.com/photo-1542296332-2e44a996aa0a?q=80&w=300&auto=format&fit=crop" 
-                : "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=300&auto=format&fit=crop"
+            title: isFlight ? (flight_booking?.flight?.airline || "Flight") : (data.hotel_booking?.room_type?.hotel?.name || "Stay"),
         }}
       />
     </div>

@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search, Filter, Eye, Ban, CheckCircle, Users, UserCheck, UserX, Download, Loader2 } from "lucide-react";
+import { Search, Filter, Eye, Ban, CheckCircle, Users, UserCheck, UserX, Loader2 } from "lucide-react";
 import Pagination from "@/components/partner/dashboard/Pagination";
 import { getAdminUsers, updateUserStatus } from "@/lib/api";
+import { formatRp } from "@/lib/utils";
 
 interface UserData {
   id: number;
@@ -22,11 +23,7 @@ const statusColors: Record<string, string> = {
   suspended: "bg-red-50 dark:bg-red-500/10 text-red-500",
 };
 
-function formatRp(v: number): string {
-  if (v >= 1_000_000) return `Rp ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `Rp ${(v / 1_000).toFixed(0)}K`;
-  return `Rp ${v.toLocaleString("id-ID")}`;
-}
+
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);

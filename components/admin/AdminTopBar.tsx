@@ -54,6 +54,10 @@ export default function AdminTopBar({ onMenuToggle }: AdminTopBarProps) {
       }
     }
     loadData();
+
+    // Poll for new admin notifications every 15 seconds
+    const interval = setInterval(loadData, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const unreadCount = notifications.filter((n) => n.unread).length;

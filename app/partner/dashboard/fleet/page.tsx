@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Plane, Wrench, BarChart, Users, Calendar, Trash2, Loader2 } from "lucide-react";
 import AddAircraftModal from "@/components/partner/dashboard/AddAircraftModal";
-import { getPartnerFleet, createAircraft, deleteAircraft, PartnerAircraft } from "@/lib/api";
+import { getPartnerFleet, createAircraft, deleteAircraft, updateAircraft, PartnerAircraft } from "@/lib/api";
 
 export default function FleetPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -11,6 +11,7 @@ export default function FleetPage() {
   const [stats, setStats] = useState({ total: 0, maintenance: 0, utilization: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingAircraft, setEditingAircraft] = useState<PartnerAircraft | null>(null);
 
   const fetchFleet = useCallback(async () => {
     try {
@@ -43,10 +44,27 @@ export default function FleetPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleUpdateAircraft = async (data: any) => {
+    if (!editingAircraft) return;
+    try {
+      await updateAircraft((editingAircraft as any).ID || editingAircraft.id, {
+        registration: data.registration,
+        model: data.model,
+        capacity: Number(data.capacity),
+        yom: data.yom || "",
+        status: data.status || "active",
+      });
+      setEditingAircraft(null);
+      fetchFleet();
+    } catch (err: any) {
+      alert(err.message || "Failed to update aircraft");
+    }
+  };
+
+  const handleDelete = async (ID: number) => {
     if (!confirm("Are you sure you want to delete this aircraft?")) return;
     try {
-      await deleteAircraft(id);
+      await deleteAircraft(ID);
       fetchFleet();
     } catch (err: any) {
       alert(err.message || "Failed to delete aircraft");
@@ -135,8 +153,8 @@ export default function FleetPage() {
         </div>
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-         {fleet.map((plane) => (
-            <div key={plane.id} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 hover:border-sky-500/30 transition-all group relative overflow-hidden">
+         {fleet.map((plane: any) => (
+            <div key={plane.ID || plane.id} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-5 hover:border-sky-500/30 transition-all group relative overflow-hidden">
                <div className={`absolute top-0 right-0 w-24 h-24 bg-linear-to-br from-gray-50 to-transparent dark:from-slate-700 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110 ${plane.status === 'maintenance' ? 'from-orange-50 dark:from-orange-900/10' : ''}`}></div>
                
                <div className="flex justify-between items-start relative z-10">
@@ -176,18 +194,29 @@ export default function FleetPage() {
 
                <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-2">
                   <button 
-                    onClick={() => handleDelete(plane.id)}
+                    onClick={() => handleDelete(plane.ID || plane.id)}
                     className="text-sm font-semibold text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                   >
                      <Trash2 className="w-4 h-4" />
                   </button>
-                  <button className="text-sm font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 px-3 py-1.5 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors">
+                  <button 
+                    onClick={() => setEditingAircraft(plane)}
+                    className="text-sm font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 px-3 py-1.5 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors">
                      Manage
                   </button>
                </div>
             </div>
          ))}
       </div>
+      )}
+      
+      {editingAircraft && (
+        <AddAircraftModal
+          isOpen={true}
+          onClose={() => setEditingAircraft(null)}
+          onSave={handleUpdateAircraft}
+          initialData={editingAircraft}
+        />
       )}
     </div>
   );

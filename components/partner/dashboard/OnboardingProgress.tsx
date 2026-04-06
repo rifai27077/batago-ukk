@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronRight, User, Building, CreditCard, Camera } from "lucide-react";
+import { Check, ChevronRight, User, Building, CreditCard, Camera, Plane } from "lucide-react";
 import Link from "next/link";
+import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 
 interface OnboardingStep {
   id: number;
   title: string;
   description?: string;
-  icon?: any;
+  icon?: React.ElementType;
   status: "completed" | "current" | "pending" | "in_review";
   link?: string;
 }
@@ -19,6 +20,7 @@ interface OnboardingProgressProps {
 
 export default function OnboardingProgress({ steps: initialSteps }: OnboardingProgressProps) {
   const [isDismissed, setIsDismissed] = useState(false);
+  const { partnerType } = usePartner();
 
   const defaultSteps = [
     {
@@ -43,15 +45,15 @@ export default function OnboardingProgress({ steps: initialSteps }: OnboardingPr
       description: "Set up your payout method to receive earnings",
       icon: CreditCard,
       status: "pending" as const,
-      link: "/partner/dashboard/finance/settings",
+      link: "/partner/dashboard/finance?openModal=bank",
     },
     {
       id: 4,
-      title: "List First Property",
-      description: "Create your first listing and start hosting",
-      icon: Building,
+      title: partnerType === 'airline' ? "List First Flight Route" : "List First Property",
+      description: partnerType === 'airline' ? "Create your first flight route and manage schedules" : "Create your first listing and start hosting",
+      icon: partnerType === 'airline' ? Plane : Building,
       status: "pending" as const,
-      link: "/partner/dashboard/listings",
+      link: partnerType === 'airline' ? "/partner/dashboard/flights" : "/partner/dashboard/listings",
     },
   ];
 

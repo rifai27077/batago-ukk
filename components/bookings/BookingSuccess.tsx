@@ -77,8 +77,9 @@ export default function BookingSuccess() {
   const hotelVoucher = booking.voucher;
 
   const handleDownload = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/v1/bookings/${b.booking_code}/ticket`;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('batago_token') : null;
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/v1').replace(/\/v1$/, '');
+    const url = `${baseUrl}/v1/bookings/${b.booking_code}/ticket`;
     
     fetch(url, {
       headers: {

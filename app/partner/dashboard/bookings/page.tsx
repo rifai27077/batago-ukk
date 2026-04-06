@@ -15,6 +15,7 @@ interface BaseBookingItem {
   amount: string;
   status: StatusType;
   createdAt: string;
+  isoDate: string;
 }
 
 interface HotelBookingItem extends BaseBookingItem {
@@ -99,6 +100,7 @@ export default function BookingsPage() {
                 status: statusMap[b.booking_status] || "pending",
                 amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
                 createdAt: createdDate,
+                isoDate: f?.flight?.departure_time || b.CreatedAt,
               };
             }
             
@@ -123,6 +125,7 @@ export default function BookingsPage() {
               status: statusMap[b.booking_status] || "pending",
               amount: `Rp ${b.total_amount.toLocaleString("id-ID")}`,
               createdAt: createdDate,
+              isoDate: h?.check_in || b.CreatedAt,
             };
           });
           setBookings(mapped);
@@ -173,7 +176,11 @@ export default function BookingsPage() {
 
       // Tab Logic
       if (activeTab === "all") return matchSearch;
-      if (activeTab === "today") return matchSearch && b.status === "confirmed"; // Simplified mock logic
+      if (activeTab === "today") {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const bookingDate = b.isoDate ? b.isoDate.substring(0, 10) : "";
+        return matchSearch && bookingDate === todayStr;
+      }
       if (activeTab === "upcoming") return matchSearch && (b.status === "confirmed" || b.status === "pending");
       return matchSearch && b.status === activeTab;
     });

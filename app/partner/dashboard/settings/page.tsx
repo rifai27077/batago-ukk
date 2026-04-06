@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Building, CreditCard, Bell, Shield, Globe, Camera, Save, Eye, EyeOff, Plane, Loader2 } from "lucide-react";
+import { User, Building, CreditCard, Bell, Shield, Globe, Save, Eye, EyeOff, Plane, Loader2 } from "lucide-react";
 import { usePartner } from "@/components/partner/dashboard/PartnerContext";
 import { getProfile, updateProfile, getPayoutSettings, updatePayoutSettings, updatePassword } from "@/lib/api";
 
@@ -17,7 +17,6 @@ export default function SettingsPage() {
     email: "",
     phone: "",
     role: "",
-    avatar_url: "",
     company_name: "",
     company_type: "",
     address: "",
@@ -47,7 +46,6 @@ export default function SettingsPage() {
             email: profileRes.user.email,
             phone: profileRes.user.phone || "",
             role: profileRes.user.role,
-            avatar_url: profileRes.user.avatar_url || "",
             company_name: profileRes.user.partner_company_name || "",
             company_type: profileRes.user.partner_type || "",
             address: profileRes.user.partner_address || "",
@@ -174,17 +172,8 @@ export default function SettingsPage() {
 
               {/* Avatar */}
               <div className="flex items-center gap-4 mb-6">
-                <div className="relative">
-                  {form.avatar_url ? (
-                    <img src={form.avatar_url} alt="Avatar" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
-                  ) : (
-                    <div className="w-20 h-20 bg-linear-to-br from-primary to-teal-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-primary/20">
-                      {form.name.charAt(0)}
-                    </div>
-                  )}
-                  <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg flex items-center justify-center shadow-sm hover:bg-gray-50 dark:hover:bg-slate-600">
-                    <Camera className="w-3.5 h-3.5 text-gray-500 dark:text-slate-400" />
-                  </button>
+                <div className="w-20 h-20 bg-linear-to-br from-primary to-teal-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-primary/20">
+                  {form.name.charAt(0)}
                 </div>
                 <div>
                   <h4 className="font-bold text-gray-900 dark:text-white">{form.name}</h4>

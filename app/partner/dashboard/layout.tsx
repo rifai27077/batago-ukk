@@ -14,6 +14,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { setPartnerType } = usePartner();
   
   // We can use partnerType here if we need it for layout logic, but for now Sidebar/TopBar use it internally.
   // We still need to pass state for Sidebar open/close.
@@ -38,6 +39,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Hydrate partner type context
+        if (res.user.partner_type) {
+           const mappedType = res.user.partner_type === "flight" ? "airline" : res.user.partner_type;
+           setPartnerType(mappedType as "hotel" | "airline");
+        }
+
         setIsLoading(false);
       } catch (err) {
         console.error("Auth check failed", err);
@@ -46,11 +53,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     }
 
     checkAuth();
-  }, [router]);
+  }, [router, setPartnerType]);
 
   if (isLoading) {
       return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
       );

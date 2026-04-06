@@ -1,63 +1,38 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, Mail, Phone, MapPin, Calendar, Moon, CreditCard, Building2, Printer, MessageSquare, Ban, CheckCircle2, RefreshCw, Clock, DollarSign } from "lucide-react";
+import { ArrowLeft, User, Mail, Phone, MapPin, Calendar, Moon, CreditCard, Printer, MessageSquare, Ban, CheckCircle2, RefreshCw, Clock, DollarSign, Loader2 } from "lucide-react";
+import { getAdminBookingDetail } from "@/lib/api";
+import { formatRp } from "@/lib/utils";
 
 interface BookingDetailData {
   id: string;
-  status: "confirmed" | "pending" | "cancelled" | "refunded" | "disputed" | "completed";
+  status: string;
   guest: { name: string; email: string; phone: string };
+  guest_user_id: number;
   partner: string;
-  partnerType: "hotel" | "flight";
-  roomType: string;
-  checkIn: string;
-  checkOut: string;
+  partner_id: number;
+  partner_type: string;
+  room_type: string;
+  check_in: string;
+  check_out: string;
   nights: number;
   guests: number;
-  specialRequest: string;
+  special_request: string;
   payment: {
     method: string;
     total: string;
     breakdown: { label: string; amount: string }[];
   };
   commission: string;
-  createdAt: string;
+  created_at: string;
 }
-
-const mockBooking: BookingDetailData = {
-  id: "BG-240217-001",
-  status: "confirmed",
-  guest: {
-    name: "Ahmad Rifai",
-    email: "ahmad.rifai@email.com",
-    phone: "+62 812 3456 7890",
-  },
-  partner: "Hotel Santika Premiere Batam",
-  partnerType: "hotel",
-  roomType: "Deluxe Room",
-  checkIn: "16 Februari 2026",
-  checkOut: "18 Februari 2026",
-  nights: 2,
-  guests: 2,
-  specialRequest: "Late check-in sekitar jam 11 malam. Tolong siapkan extra pillow.",
-  payment: {
-    method: "BCA Virtual Account",
-    total: "Rp 1.700.000",
-    breakdown: [
-      { label: "Deluxe Room × 2 nights", amount: "Rp 1.700.000" },
-      { label: "Tax & Service (included)", amount: "Rp 0" },
-      { label: "Service Fee", amount: "Rp 5.000" },
-      { label: "Total Paid by Guest", amount: "Rp 1.705.000" },
-    ],
-  },
-  commission: "Rp 170.000",
-  createdAt: "14 Februari 2026, 15:30 WIB",
-};
 
 const statusColors: Record<string, string> = {
   confirmed: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   pending: "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  new: "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400",
   cancelled: "bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400",
   refunded: "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400",
   disputed: "bg-red-50 dark:bg-red-500/10 text-red-500",
@@ -70,7 +45,43 @@ interface PageProps {
 
 export default function AdminBookingDetailPage({ params }: PageProps) {
   const { id } = use(params);
-  const booking = mockBooking; // In real app, fetch by id
+  const [booking, setBooking] = useState<BookingDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const res = await getAdminBookingDetail(id);
+        setBooking(res.data);
+      } catch (err: any) {
+        setError(err.message || "Failed to load booking detail");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !booking) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <p className="text-red-500 text-sm">{error || "Booking not found"}</p>
+        <Link href="/admin/bookings" className="text-sm text-primary hover:underline">← Back to Bookings</Link>
+      </div>
+    );
+  }
+
+  const displayStatus = booking.status === "new" ? "pending" : booking.status;
 
   return (
     <div className="space-y-5">
@@ -83,11 +94,11 @@ export default function AdminBookingDetailPage({ params }: PageProps) {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">#{booking.id}</h1>
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${statusColors[booking.status]}`}>
-                {booking.status}
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${statusColors[booking.status] || statusColors.pending}`}>
+                {displayStatus}
               </span>
             </div>
-            <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Created {booking.createdAt}</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Created {booking.created_at}</p>
           </div>
         </div>
         <div className="flex gap-2 ml-11 sm:ml-0">
@@ -135,12 +146,12 @@ export default function AdminBookingDetailPage({ params }: PageProps) {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Link href={`/admin/users/USR-001`} className="w-10 h-10 bg-violet-50 dark:bg-violet-500/10 rounded-xl flex items-center justify-center hover:ring-2 hover:ring-violet-500/20 transition-all">
+                <Link href={`/admin/users/${booking.guest_user_id}`} className="w-10 h-10 bg-violet-50 dark:bg-violet-500/10 rounded-xl flex items-center justify-center hover:ring-2 hover:ring-violet-500/20 transition-all">
                   <User className="w-5 h-5 text-violet-500" />
                 </Link>
                 <div>
                   <p className="text-xs text-gray-400 dark:text-slate-500">User Profile</p>
-                  <Link href={`/admin/users/USR-001`} className="text-sm font-semibold text-primary hover:underline">View user detail →</Link>
+                  <Link href={`/admin/users/${booking.guest_user_id}`} className="text-sm font-semibold text-primary hover:underline">View user detail →</Link>
                 </div>
               </div>
             </div>
@@ -148,54 +159,70 @@ export default function AdminBookingDetailPage({ params }: PageProps) {
 
           {/* Stay Details */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 shadow-sm">
-            <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4">Stay Details</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="flex items-start gap-3">
-                <Calendar className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-400 dark:text-slate-500">Check-in</p>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.checkIn}</p>
+            <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4">
+              {booking.partner_type === "hotel" ? "Stay Details" : "Flight Details"}
+            </h2>
+            {booking.partner_type === "hotel" && (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="flex items-start gap-3">
+                    <Calendar className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-slate-500">Check-in</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.check_in || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Calendar className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-slate-500">Check-out</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.check_out || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Moon className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-slate-500">Duration</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.nights} Nights</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <User className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-slate-500">Guests</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.guests} Adults</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Calendar className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-400 dark:text-slate-500">Check-out</p>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.checkOut}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Moon className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-400 dark:text-slate-500">Duration</p>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.nights} Nights</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <User className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-400 dark:text-slate-500">Guests</p>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">{booking.guests} Adults</p>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-700">
+                <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-700">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-400 dark:text-slate-500">Property & Room</p>
+                      <Link href={`/admin/partners/${booking.partner_id}`} className="text-sm font-semibold text-primary hover:underline">{booking.partner}</Link>
+                      {booking.room_type && <p className="text-sm text-gray-500 dark:text-slate-400">{booking.room_type}</p>}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {booking.partner_type !== "hotel" && (
               <div className="flex items-start gap-3">
                 <MapPin className="w-4 h-4 text-gray-400 dark:text-slate-500 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs text-gray-400 dark:text-slate-500">Property & Room</p>
-                  <Link href={`/admin/partners/PTR-001`} className="text-sm font-semibold text-primary hover:underline">{booking.partner}</Link>
-                  <p className="text-sm text-gray-500 dark:text-slate-400">{booking.roomType}</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500">Airline</p>
+                  <Link href={`/admin/partners/${booking.partner_id}`} className="text-sm font-semibold text-primary hover:underline">{booking.partner}</Link>
                 </div>
               </div>
-            </div>
+            )}
 
-            {booking.specialRequest && (
+            {booking.special_request && (
               <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-700">
                 <p className="text-xs text-gray-400 dark:text-slate-500 mb-1">Special Request</p>
                 <p className="text-sm text-gray-700 dark:text-slate-300 bg-amber-50 dark:bg-amber-500/10 rounded-xl px-4 py-3 border border-amber-100 dark:border-amber-500/20">
-                  {booking.specialRequest}
+                  {booking.special_request}
                 </p>
               </div>
             )}
@@ -236,28 +263,6 @@ export default function AdminBookingDetailPage({ params }: PageProps) {
                 </div>
                 <span className="text-sm font-bold text-primary">{booking.commission}</span>
               </div>
-            </div>
-          </div>
-
-          {/* Timeline */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 shadow-sm">
-            <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4">Timeline</h2>
-            <div className="space-y-3">
-              {[
-                { time: "14 Feb, 15:30", label: "Booking created", icon: Clock },
-                { time: "14 Feb, 15:31", label: "Payment received", icon: CreditCard },
-                { time: "14 Feb, 15:32", label: "Confirmed by partner", icon: CheckCircle2 },
-              ].map((event, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
-                    <event.icon className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-700 dark:text-slate-300">{event.label}</p>
-                    <p className="text-[10px] text-gray-400 dark:text-slate-500">{event.time}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 

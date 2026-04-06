@@ -24,15 +24,23 @@ export default function NotificationCenter() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const fetchNotifications = async () => {
-    setIsLoading(true);
-    try {
-        const res = await getNotifications();
-        setNotifications(res.data || []);
-    } catch (err) {
-        console.error("Failed to fetch notifications", err);
-    } finally {
-        setIsLoading(false);
-    }
+    import("@/lib/api").then(async ({ getToken, getNotifications }) => {
+        const token = getToken();
+        if (!token) {
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const res = await getNotifications();
+            setNotifications(res.data || []);
+        } catch (err) {
+            console.error("Failed to fetch notifications", err);
+        } finally {
+            setIsLoading(false);
+        }
+    });
   };
 
   useEffect(() => {

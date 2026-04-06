@@ -39,7 +39,8 @@ async function apiFetch<T>(
     throw new Error(errorBody.error || `API error: ${res.status}`);
   }
 
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : ({} as T);
 }
 
 // --- Auth ---
@@ -699,6 +700,13 @@ export async function getPartnerBookings(params?: { page?: number; limit?: numbe
   );
 }
 
+export async function updatePartnerBookingStatus(bookingCode: string, status: string) {
+  return apiFetch<{ message: string }>(`/partner/bookings/${bookingCode}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+}
+
 // --- Partner Reviews ---
 export interface PartnerReview {
   ID: number;
@@ -745,6 +753,8 @@ export interface PartnerFinanceSummary {
   net_revenue: number;
   total_bookings: number;
   paid_bookings: number;
+  pending?: number;
+  growth?: number;
 }
 
 export interface FinanceTransaction {
@@ -762,7 +772,7 @@ export async function getPartnerFinance(params?: { page?: number; limit?: number
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
-  return apiFetch<{ summary: PartnerFinanceSummary; chart_data?: any[]; transactions: FinanceTransaction[]; meta: { page: number; limit: number; total: number } }>(
+  return apiFetch<{ summary: PartnerFinanceSummary; chart_data?: any[]; transactions: FinanceTransaction[]; payouts?: any[]; meta: { page: number; limit: number; total: number } }>(
     `/partner/finance?${query.toString()}`
   );
 }
@@ -930,7 +940,9 @@ export interface PartnerRoute {
   flight_number: string;
   duration: string;
   aircraft: string;
-  schedule: string;
+  schedule: string[];
+  base_price: number;
+  classes?: { class: string; price: number; capacity: number }[];
   status: string;
 }
 
@@ -954,9 +966,27 @@ export async function createPartnerRoute(data: {
   duration?: string;
   aircraft?: string;
   base_price?: number;
+  classes?: { class: string; price: number; capacity: number }[];
+  schedule?: string[];
 }) {
   return apiFetch<{ message: string; data: any }>("/partner/routes", {
     method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePartnerRoute(id: number, data: Partial<{
+  origin: string;
+  destination: string;
+  flight_number: string;
+  duration: string;
+  aircraft: string;
+  base_price: number;
+  classes: { class: string; price: number; capacity: number }[];
+  schedule: string[];
+}>) {
+  return apiFetch<{ message: string; data: any }>(`/partner/routes/${id}`, {
+    method: "PUT",
     body: JSON.stringify(data),
   });
 }
@@ -1211,8 +1241,34 @@ export async function createAdminAccount(payload: { name: string; email: string;
   return apiFetch<{ data: any }>("/admin/accounts", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export async function updateAdminAccount(id: number, payload: { name?: string; email?: string; password?: string; role?: string }) {
+  return apiFetch<{ data: any }>(`/admin/accounts/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
 export async function deleteAdminAccount(id: number) {
   return apiFetch<{ message: string }>(`/admin/accounts/${id}`, { method: "DELETE" });
+}
+
+// Admin Settings (Platform Config)
+export async function getPlatformSettings() {
+  return apiFetch<{ data: Record<string, string> }>("/admin/settings");
+}
+
+export async function updatePlatformSettings(data: Record<string, string>) {
+  return apiFetch<{ message: string }>("/admin/settings", { method: "PUT", body: JSON.stringify(data) });
+}
+
+// Admin Facilities (Amenities)
+export async function getAdminFacilities() {
+  return apiFetch<{ data: { id: number; name: string; icon: string }[] }>("/admin/facilities");
+}
+
+export async function createAdminFacility(payload: { name: string; icon?: string }) {
+  return apiFetch<{ data: any }>("/admin/facilities", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function deleteAdminFacility(id: number) {
+  return apiFetch<{ message: string }>(`/admin/facilities/${id}`, { method: "DELETE" });
 }
 
 // Admin Activity Log
@@ -1236,4 +1292,83 @@ export async function getAdminReports() {
     summary: { total_revenue: number; total_bookings: number; new_users: number; avg_order: number };
     distribution: { name: string; value: number }[];
   }>("/admin/reports");
+}
+
+// Admin Detail Pages
+export async function getAdminBookingDetail(id: string) {
+  return apiFetch<{
+    data: {
+      id: string;
+      status: string;
+      guest: { name: string; email: string; phone: string };
+      guest_user_id: number;
+      partner: string;
+      partner_id: number;
+      partner_type: string;
+      room_type: string;
+      check_in: string;
+      check_out: string;
+      nights: number;
+      guests: number;
+      special_request: string;
+      payment: {
+        method: string;
+        total: string;
+        breakdown: { label: string; amount: string }[];
+      };
+      commission: string;
+      created_at: string;
+    };
+  }>(`/admin/bookings/${id}`);
+}
+
+export async function getAdminUserDetail(id: string | number) {
+  return apiFetch<{
+    data: {
+      id: number;
+      name: string;
+      email: string;
+      phone: string;
+      address: string;
+      status: string;
+      joined: string;
+      total_bookings: number;
+      total_spent: number;
+      loyalty_points: number;
+    };
+    booking_history: {
+      id: string;
+      type: string;
+      partner: string;
+      date: string;
+      amount: number;
+      status: string;
+    }[];
+  }>(`/admin/users/${id}`);
+}
+
+export async function getAdminPartnerDetail(id: string | number) {
+  return apiFetch<{
+    data: {
+      id: number;
+      name: string;
+      type: string;
+      status: string;
+      email: string;
+      phone: string;
+      address: string;
+      commission: string;
+      joined: string;
+      total_revenue: number;
+      total_bookings: number;
+      rating: number;
+    };
+    recent_bookings: {
+      id: string;
+      guest: string;
+      date: string;
+      amount: number;
+      status: string;
+    }[];
+  }>(`/admin/partners/${id}`);
 }

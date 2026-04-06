@@ -99,13 +99,21 @@ export default function BookingCard({ booking }: { booking: BookingProps }) {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
         <div className="flex flex-col md:flex-row">
           {/* Image Section */}
-          <div className="relative w-full md:w-48 h-48 md:h-auto shrink-0">
-            <Image
-              src={booking.details.image}
-              alt={booking.details.title}
-              fill
-              className="object-cover"
-            />
+          <div className="relative w-full md:w-48 h-48 md:h-auto shrink-0 bg-gray-100">
+            {booking.details.image ? (
+                <Image
+                src={booking.details.image}
+                alt={booking.details.title}
+                fill
+                className="object-cover"
+                />
+            ) : (
+                <div className={`w-full h-full flex items-center justify-center bg-linear-to-br ${isFlight ? 'from-sky-500 to-indigo-600' : 'from-emerald-500 to-teal-600'}`}>
+                    <span className="text-white text-4xl font-bold opacity-40">
+                        {booking.details.title ? booking.details.title.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase() : (isFlight ? 'FL' : 'ST')}
+                    </span>
+                </div>
+            )}
             <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
               {isFlight ? <Plane className="w-3 h-3" /> : <Bed className="w-3 h-3" />}
               {isFlight ? "Flight" : "Stay"}
@@ -202,7 +210,7 @@ export default function BookingCard({ booking }: { booking: BookingProps }) {
                         {isCancelling ? "Cancelling..." : "Cancel"}
                     </button>
                   )}
-                  {isPaid && (
+                  {booking.status === "completed" && (
                     <button 
                       onClick={handleDownload}
                       className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors"
@@ -225,8 +233,7 @@ export default function BookingCard({ booking }: { booking: BookingProps }) {
         onClose={() => setIsReviewModalOpen(false)} 
         bookingDetails={{
             id: String(booking.internalID),
-            title: booking.details.title,
-            image: booking.details.image
+            title: booking.details.title
         }}
       />
     </>
