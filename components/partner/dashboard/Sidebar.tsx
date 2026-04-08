@@ -42,7 +42,7 @@ const navItemsAirline = [
   { label: "Overview", href: "/partner/dashboard", icon: LayoutDashboard },
   { label: "Routes", href: "/partner/dashboard/routes", icon: Map },
   { label: "Fleet", href: "/partner/dashboard/fleet", icon: Plane },
-  { label: "Schedules", href: "/partner/dashboard/calendar", icon: CalendarDays },
+  // { label: "Schedules", href: "/partner/dashboard/calendar", icon: CalendarDays },
   { label: "Reservations", href: "/partner/dashboard/bookings", icon: Users },
   { label: "Promotions", href: "/partner/dashboard/promotions", icon: Tag },
   { label: "Finance", href: "/partner/dashboard/finance", icon: Wallet },

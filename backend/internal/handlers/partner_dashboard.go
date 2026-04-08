@@ -886,11 +886,15 @@ func GetPartnerFinance(c *gin.Context) {
 	var chartData []gin.H
 	for i := 5; i >= 0; i-- {
 		monthStart := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, now.Location())
-		prevMonthStart := monthStart.AddDate(0, -1, 0)
+		rev := chartRevMap[monthStart.Format("2006-01")]
+		comm := rev * commissionRate
+		net := rev - comm
+		
 		chartData = append(chartData, gin.H{
-			"name":     monthStart.Format("Jan"),
-			"revenue":  chartRevMap[monthStart.Format("2006-01")],
-			"previous": chartRevMap[prevMonthStart.Format("2006-01")],
+			"month":      monthStart.Format("Jan"),
+			"net":        math.Round(net*100) / 100,
+			"commission": math.Round(comm*100) / 100,
+			"revenue":    math.Round(rev*100) / 100,
 		})
 	}
 
