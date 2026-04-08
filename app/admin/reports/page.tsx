@@ -15,11 +15,11 @@ export default function AdminReportsPage() {
     avg_order_value: 0
   });
   
-  const [bookingData, setBookingData] = useState<{name: string, revenue: number, bookings: number}[]>([]);
-  const categoryData = [
-    { name: 'Hotels', value: 65 },
-    { name: 'Flights', value: 35 },
-  ];
+  const [bookingData, setBookingData] = useState<{name: string, revenue: number, bookings: number, commission: number, profit: number}[]>([]);
+  const [categoryData, setCategoryData] = useState<{name: string, value: number}[]>([
+    { name: 'Hotels', value: 0 },
+    { name: 'Flights', value: 0 },
+  ]);
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -39,9 +39,15 @@ export default function AdminReportsPage() {
             const chartData = res.monthly_data.map((d: any) => ({
               name: d.name,
               revenue: d.revenue,
-              bookings: d.bookings
+              bookings: d.bookings,
+              commission: d.commission,
+              profit: d.profit
             }));
             setBookingData(chartData);
+          }
+
+          if (res.distribution) {
+            setCategoryData(res.distribution);
           }
         }
       } catch (err) {
@@ -57,7 +63,7 @@ export default function AdminReportsPage() {
   const formatCurrency = (val: number) => {
     if (val >= 1000000) return `Rp ${(val / 1000000).toFixed(1)}M`;
     if (val >= 1000) return `Rp ${(val / 1000).toFixed(1)}k`;
-    return `Rp ${val}`;
+    return `Rp ${val.toLocaleString('id-ID')}`;
   };
 
   const formatYAxis = (val: number) => {
@@ -195,8 +201,8 @@ export default function AdminReportsPage() {
                       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{row.name} {new Date().getFullYear()}</td>
                       <td className="px-6 py-4">{row.bookings}</td>
                       <td className="px-6 py-4">Rp {row.revenue.toLocaleString('id-ID')}</td>
-                      <td className="px-6 py-4 text-red-500">- Rp {(row.revenue * 0.1).toLocaleString('id-ID')}</td>
-                      <td className="px-6 py-4 text-emerald-600 font-bold">+ Rp {(row.revenue * 0.05).toLocaleString('id-ID')}</td>
+                      <td className="px-6 py-4 text-red-500">- Rp {row.commission.toLocaleString('id-ID')}</td>
+                      <td className="px-6 py-4 text-emerald-600 font-bold">+ Rp {row.profit.toLocaleString('id-ID')}</td>
                       <td className="px-6 py-4 text-right text-gray-400 font-medium">—</td>
                     </tr>
                   ))}

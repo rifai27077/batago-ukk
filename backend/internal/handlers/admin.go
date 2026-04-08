@@ -1517,6 +1517,30 @@ func GetAdminReports(c *gin.Context) {
 	}()
 	wg.Wait()
 
+	var commRows []struct {
+		Trunc      string  `gorm:"column:trunc"`
+		Commission float64 `gorm:"column:commission"`
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		trunc := database.TruncateMonthSQL("b.created_at")
+		db.Raw(`
+			SELECT `+trunc+` as trunc,
+			       SUM(CASE 
+			           WHEN p.commission_rate > 0 THEN b.total_amount * p.commission_rate / 100
+			           WHEN b.type = 'hotel' THEN b.total_amount * 0.10
+			           ELSE b.total_amount * 0.08
+			       END) as commission
+			FROM bookings b
+			JOIN partners p ON b.partner_id = p.id
+			JOIN payments pay ON pay.booking_id = b.id AND pay.status = 'PAID'
+			WHERE b.created_at >= ? AND b.deleted_at IS NULL
+			GROUP BY `+trunc+`
+		`, twelveMonthsAgo).Scan(&commRows)
+	}()
+	wg.Wait()
+
 	// Build keyed maps for O(1) lookup
 	revMap := make(map[string]float64)
 	for _, r := range revRows {
@@ -1526,11 +1550,17 @@ func GetAdminReports(c *gin.Context) {
 	for _, b := range bkRows {
 		bkMap[formatTrunc(b.Trunc)] = b.Bookings
 	}
+	commMap := make(map[string]float64)
+	for _, c := range commRows {
+		commMap[formatTrunc(c.Trunc)] = c.Commission
+	}
 
 	type MonthlyReport struct {
-		Name     string  `json:"name"`
-		Revenue  float64 `json:"revenue"`
-		Bookings int64   `json:"bookings"`
+		Name       string  `json:"name"`
+		Revenue    float64 `json:"revenue"`
+		Commission float64 `json:"commission"`
+		Profit     float64 `json:"profit"`
+		Bookings   int64   `json:"bookings"`
 	}
 	var monthlyData []MonthlyReport
 	var totalRevenue float64
@@ -1540,9 +1570,19 @@ func GetAdminReports(c *gin.Context) {
 		key := m.Format("2006-01")
 		r := revMap[key]
 		b := bkMap[key]
+		c := commMap[key]
+		
 		totalRevenue += r
 		totalBookings += b
-		monthlyData = append(monthlyData, MonthlyReport{Name: m.Format("Jan"), Revenue: r, Bookings: b})
+		
+		// Profit here is the platform's commission
+		monthlyData = append(monthlyData, MonthlyReport{
+			Name:       m.Format("Jan"),
+			Revenue:    math.Round(r*100) / 100,
+			Commission: math.Round(c*100) / 100,
+			Profit:     math.Round(c*110) / 110, // Just use commission for now or net
+			Bookings:   b,
+		})
 	}
 
 	// Summary counts (parallel with distribution)
