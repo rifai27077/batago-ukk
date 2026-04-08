@@ -179,19 +179,19 @@ func GetDashboardStats(c *gin.Context) {
 	database.DB.Model(&models.Booking{}).Where("partner_id = ?", partner.ID).Count(&totalBookings)
 
 	now := time.Now()
-	sevenDaysAgo := now.AddDate(0, 0, -7)
-	fourteenDaysAgo := now.AddDate(0, 0, -14)
+	thirtyDaysAgo := now.AddDate(0, 0, -30)
+	sixtyDaysAgo := now.AddDate(0, 0, -60)
 
-	var last7DaysBookings int64
-	database.DB.Model(&models.Booking{}).Where("partner_id = ? AND created_at >= ?", partner.ID, sevenDaysAgo).Count(&last7DaysBookings)
+	var last30DaysBookings int64
+	database.DB.Model(&models.Booking{}).Where("partner_id = ? AND created_at >= ?", partner.ID, thirtyDaysAgo).Count(&last30DaysBookings)
 
-	var prev7DaysBookings int64
-	database.DB.Model(&models.Booking{}).Where("partner_id = ? AND created_at >= ? AND created_at < ?", partner.ID, fourteenDaysAgo, sevenDaysAgo).Count(&prev7DaysBookings)
+	var prev30DaysBookings int64
+	database.DB.Model(&models.Booking{}).Where("partner_id = ? AND created_at >= ? AND created_at < ?", partner.ID, sixtyDaysAgo, thirtyDaysAgo).Count(&prev30DaysBookings)
 
-	bookingTrend := 0
-	if prev7DaysBookings > 0 {
-		bookingTrend = int(float64(last7DaysBookings-prev7DaysBookings) / float64(prev7DaysBookings) * 100)
-	} else if last7DaysBookings > 0 {
+	bookingTrend := 0.0
+	if prev30DaysBookings > 0 {
+		bookingTrend = math.Round(float64(last30DaysBookings-prev30DaysBookings)/float64(prev30DaysBookings)*1000) / 10
+	} else if last30DaysBookings > 0 {
 		bookingTrend = 100
 	}
 
@@ -201,20 +201,20 @@ func GetDashboardStats(c *gin.Context) {
 		Where("partner_id = ? AND payment_status = ?", partner.ID, models.PaymentStatusPaid).
 		Select("COALESCE(SUM(total_amount), 0)").Scan(&totalRevenue)
 
-	var last7DaysRevenue float64
+	var last30DaysRevenue float64
 	database.DB.Model(&models.Booking{}).
-		Where("partner_id = ? AND payment_status = ? AND created_at >= ?", partner.ID, models.PaymentStatusPaid, sevenDaysAgo).
-		Select("COALESCE(SUM(total_amount), 0)").Scan(&last7DaysRevenue)
+		Where("partner_id = ? AND payment_status = ? AND created_at >= ?", partner.ID, models.PaymentStatusPaid, thirtyDaysAgo).
+		Select("COALESCE(SUM(total_amount), 0)").Scan(&last30DaysRevenue)
 
-	var prev7DaysRevenue float64
+	var prev30DaysRevenue float64
 	database.DB.Model(&models.Booking{}).
-		Where("partner_id = ? AND payment_status = ? AND created_at >= ? AND created_at < ?", partner.ID, models.PaymentStatusPaid, fourteenDaysAgo, sevenDaysAgo).
-		Select("COALESCE(SUM(total_amount), 0)").Scan(&prev7DaysRevenue)
+		Where("partner_id = ? AND payment_status = ? AND created_at >= ? AND created_at < ?", partner.ID, models.PaymentStatusPaid, sixtyDaysAgo, thirtyDaysAgo).
+		Select("COALESCE(SUM(total_amount), 0)").Scan(&prev30DaysRevenue)
 
-	revenueTrend := 0
-	if prev7DaysRevenue > 0 {
-		revenueTrend = int((last7DaysRevenue - prev7DaysRevenue) / prev7DaysRevenue * 100)
-	} else if last7DaysRevenue > 0 {
+	revenueTrend := 0.0
+	if prev30DaysRevenue > 0 {
+		revenueTrend = math.Round((last30DaysRevenue-prev30DaysRevenue)/prev30DaysRevenue*1000) / 10
+	} else if last30DaysRevenue > 0 {
 		revenueTrend = 100
 	}
 

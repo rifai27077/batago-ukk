@@ -6,7 +6,6 @@ import Partners from "@/components/Partners";
 import Destinations from "@/components/Destinations";
 import CTACards from "@/components/CTACards";
 import Features from "@/components/Features";
-import Reviews from "@/components/Reviews";
 import Newsletter from "@/components/Newsletter";
 
 export default function Home() {
@@ -19,7 +18,6 @@ export default function Home() {
       <Destinations />
       <CTACards />
       <Features />
-      <Reviews />
       {/* <Newsletter /> */}
       <PartnerBanner />
       <Footer />

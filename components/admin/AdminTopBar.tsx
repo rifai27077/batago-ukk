@@ -73,7 +73,7 @@ export default function AdminTopBar({ onMenuToggle }: AdminTopBarProps) {
 
   const handleLogout = () => {
     localStorage.removeItem("batago_token");
-    router.push("/login");
+    router.push("/");
   };
 
   useEffect(() => {

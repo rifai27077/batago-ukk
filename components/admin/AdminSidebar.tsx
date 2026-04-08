@@ -69,7 +69,7 @@ export default function AdminSidebar({ isOpen, onClose, isCollapsed, onToggleCol
 
   const handleLogout = () => {
     localStorage.removeItem("batago_token");
-    router.push("/login");
+    router.push("/");
   };
 
   return (

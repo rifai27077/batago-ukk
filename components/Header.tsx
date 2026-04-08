@@ -243,7 +243,7 @@ export default function Header() {
                                     import("@/lib/api").then(mod => mod.removeToken());
                                     setIsLoggedIn(false); 
                                     setIsProfileMenuOpen(false); 
-                                    window.location.reload(); // Force refresh to clear state
+                                    window.location.href = '/';
                                 }}
                             >
                               <LogOut className="w-4 h-4" />
@@ -390,7 +390,7 @@ export default function Header() {
                     onClick={() => {
                         import("@/lib/api").then(mod => mod.removeToken());
                         setIsLoggedIn(false);
-                        window.location.reload();
+                        window.location.href = '/';
                     }}
                 >
                     Logout

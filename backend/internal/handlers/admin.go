@@ -22,14 +22,16 @@ import (
 
 func GetAdminStats(c *gin.Context) {
 	db := database.DB
-	lastMonth := time.Now().AddDate(0, -1, 0)
+	now := time.Now()
+	thirtyDaysAgo := now.AddDate(0, 0, -30)
+	sixtyDaysAgo := now.AddDate(0, 0, -60)
 
 	// ── Parallel stat collection ───────────────────────────────────
 	var (
-		totalUsers, usersLastMonth                         int64
-		activePartners, partnersLastMonth                  int64
-		totalBookings, bookingsLastMonth                   int64
-		totalRevenue, revenueLastMonth                     float64
+		totalUsers, usersPrev                         int64
+		activePartners, partnersPrev                 int64
+		totalBookings, bookingsLast30d, bookingsPrev30d                   int64
+		totalRevenue, revenueLast30d, revenuePrev30d                     float64
 		activeHotels, activeFlights                        int64
 		topPartners                                        []struct {
 			ID          uint    `json:"id"`
@@ -66,19 +68,21 @@ func GetAdminStats(c *gin.Context) {
 
 	go func() { defer wg.Done()
 		db.Model(&models.User{}).Where("role = ?", models.RoleUser).Count(&totalUsers)
-		db.Model(&models.User{}).Where("role = ? AND created_at < ?", models.RoleUser, lastMonth).Count(&usersLastMonth)
+		db.Model(&models.User{}).Where("role = ? AND created_at < ?", models.RoleUser, thirtyDaysAgo).Count(&usersPrev)
 	}()
 	go func() { defer wg.Done()
 		db.Model(&models.Partner{}).Where("status = ?", models.PartnerStatusApproved).Count(&activePartners)
-		db.Model(&models.Partner{}).Where("status = ? AND created_at < ?", models.PartnerStatusApproved, lastMonth).Count(&partnersLastMonth)
+		db.Model(&models.Partner{}).Where("status = ? AND created_at < ?", models.PartnerStatusApproved, thirtyDaysAgo).Count(&partnersPrev)
 	}()
 	go func() { defer wg.Done()
 		db.Model(&models.Booking{}).Count(&totalBookings)
-		db.Model(&models.Booking{}).Where("created_at < ?", lastMonth).Count(&bookingsLastMonth)
+		db.Model(&models.Booking{}).Where("created_at >= ?", thirtyDaysAgo).Count(&bookingsLast30d)
+		db.Model(&models.Booking{}).Where("created_at >= ? AND created_at < ?", sixtyDaysAgo, thirtyDaysAgo).Count(&bookingsPrev30d)
 	}()
 	go func() { defer wg.Done()
 		db.Model(&models.Payment{}).Where("status = ?", models.PaymentStatusPaid).Select("COALESCE(SUM(amount), 0)").Scan(&totalRevenue)
-		db.Model(&models.Payment{}).Where("status = ? AND created_at < ?", models.PaymentStatusPaid, lastMonth).Select("COALESCE(SUM(amount), 0)").Scan(&revenueLastMonth)
+		db.Model(&models.Payment{}).Where("status = ? AND paid_at >= ?", models.PaymentStatusPaid, thirtyDaysAgo).Select("COALESCE(SUM(amount), 0)").Scan(&revenueLast30d)
+		db.Model(&models.Payment{}).Where("status = ? AND paid_at >= ? AND paid_at < ?", models.PaymentStatusPaid, sixtyDaysAgo, thirtyDaysAgo).Select("COALESCE(SUM(amount), 0)").Scan(&revenuePrev30d)
 	}()
 	go func() { defer wg.Done()
 		// Single aggregated query for 6-month revenue trend
@@ -141,23 +145,33 @@ func GetAdminStats(c *gin.Context) {
 
 	// ── Post-process results in Go (zero DB round-trips) ─────────
 	var userChange float64
-	if usersLastMonth > 0 {
-		userChange = float64(totalUsers-usersLastMonth) / float64(usersLastMonth) * 100
+	if usersPrev > 0 {
+		userChange = float64(totalUsers-usersPrev) / float64(usersPrev) * 100
+	} else if totalUsers > 0 {
+		userChange = 100 // New growth from zero
 	}
-	partnerChange := activePartners - partnersLastMonth
+
+	partnerChange := activePartners - partnersPrev
+	
 	var bookingChange float64
-	if bookingsLastMonth > 0 {
-		bookingChange = float64(totalBookings-bookingsLastMonth) / float64(bookingsLastMonth) * 100
+	if bookingsPrev30d > 0 {
+		bookingChange = float64(bookingsLast30d-bookingsPrev30d) / float64(bookingsPrev30d) * 100
+	} else if bookingsLast30d > 0 {
+		bookingChange = 100
 	}
+
 	var revenueChange float64
-	if revenueLastMonth > 0 {
-		revenueChange = (totalRevenue - revenueLastMonth) / revenueLastMonth * 100
+	if revenuePrev30d > 0 {
+		revenueChange = (revenueLast30d - revenuePrev30d) / revenuePrev30d * 100
+	} else if revenueLast30d > 0 {
+		revenueChange = 100
 	}
 
 	// Build month-keyed map for trend (fill 6 slots in order)
 	trendMap := make(map[string]float64)
 	for _, r := range revTrendRows {
-		trendMap[r.Month] = math.Round(r.Value)
+		// Keep 2 decimal places precision for trend display
+		trendMap[r.Month] = math.Round(r.Value*100) / 100
 	}
 	type MonthRevenue struct {
 		Month string  `json:"month"`

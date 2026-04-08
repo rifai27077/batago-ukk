@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { User, Shield, CreditCard, LogOut, Rocket, Clock } from "lucide-react";
-import { getProfile } from "@/lib/api";
+import { getProfile, logout } from "@/lib/api";
 
 export default function AccountSidebar() {
   const pathname = usePathname();
@@ -93,7 +93,13 @@ export default function AccountSidebar() {
         
         <hr className="my-4 border-gray-100" />
         
-        <button className="flex items-center gap-4 p-4 rounded-xl transition-all duration-300 hover:bg-red-50 text-red-500 w-full text-left group">
+        <button 
+          onClick={() => {
+            logout();
+            window.location.href = '/';
+          }}
+          className="flex items-center gap-4 p-4 rounded-xl transition-all duration-300 hover:bg-red-50 text-red-500 w-full text-left group"
+        >
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-500 group-hover:bg-red-200 transition-colors">
                 <LogOut className="w-5 h-5" />
             </div>

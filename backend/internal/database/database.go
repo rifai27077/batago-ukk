@@ -305,6 +305,11 @@ func Migrate() {
 	addColumnIfNotExists("users", "reset_code", "VARCHAR(10)")
 	addColumnIfNotExists("payments", "snap_token", "VARCHAR(512)")
 	addColumnIfNotExists("payments", "redirect_url", "VARCHAR(1024)")
+	addColumnIfNotExists("payments", "paid_at", "DATETIME(3) NULL")
+	
+	// Backfill paid_at from updated_at for PAID payments that have it NULL
+	DB.Exec("UPDATE payments SET paid_at = updated_at WHERE status = 'PAID' AND paid_at IS NULL")
+
 	addColumnIfNotExists("promotions", "code", "VARCHAR(50)")
 	addColumnIfNotExists("promotions", "image_url", "VARCHAR(255)")
 	addColumnIfNotExists("hotels", "type", "VARCHAR(50) DEFAULT 'hotel'")

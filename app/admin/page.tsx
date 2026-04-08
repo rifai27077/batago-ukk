@@ -80,7 +80,9 @@ function RevenueChart({ data }: { data: { month: string; value: number }[] }) {
           return (
             <g key={pct}>
               <line x1={padX} y1={y} x2={w} y2={y} className="stroke-gray-100 dark:stroke-slate-700" strokeWidth="1" />
-              <text x={padX - 6} y={y + 3} textAnchor="end" className="fill-gray-400 dark:fill-slate-500 text-[9px]">{Math.round(max * pct)}</text>
+              <text x={padX - 6} y={y + 3} textAnchor="end" className="fill-gray-400 dark:fill-slate-500 text-[9px]">
+                {(max * pct).toLocaleString(undefined, { maximumFractionDigits: max < 5 ? 2 : (max < 50 ? 1 : 0) })}
+              </text>
             </g>
           );
         })}

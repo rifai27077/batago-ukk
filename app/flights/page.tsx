@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Hero from "@/components/Hero";
 import SearchForm from "@/components/SearchForm";
-import MapSection from "@/components/MapSection";
+
 import Destinations from "@/components/Destinations";
-import Reviews from "@/components/Reviews";
 import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
 
@@ -34,9 +33,7 @@ export default function FlightSearchPage() {
       >
         <SearchForm mode="flights" />
       </Hero>
-      <MapSection />
       <Destinations />
-      <Reviews />
       <Newsletter />
       <Footer />
     </main>
